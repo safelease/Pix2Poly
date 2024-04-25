@@ -1,0 +1,16 @@
+# Directories
+__pycache__
+data
+runs
+.vscode
+preds*
+crowdai_visualizations
+scratch
+
+# Files
+*.jpg
+*.png
+*.json
+*.tar.xz
+*.gif
+*.txt
