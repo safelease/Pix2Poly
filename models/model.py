@@ -214,6 +214,7 @@ class EncoderDecoder(nn.Module):
 
         perm_mat = log_optimal_transport(perm_mat, self.bin_score, self.cfg.SINKHORN_ITERATIONS)[:, :perm_mat.shape[1], :perm_mat.shape[2]]
         perm_mat = F.softmax(perm_mat, dim=-1)  # TODO: perhaps try gumbel softmax here?
+        # perm_mat = F.gumbel_softmax(perm_mat, tau=1.0, hard=False)
 
         return preds, perm_mat
 

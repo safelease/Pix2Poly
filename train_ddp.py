@@ -111,6 +111,9 @@ def main():
         keypoint_params=A.KeypointParams(format='yx', remove_invisible=False)
     )
 
+    if "debug" in CFG.EXPERIMENT_NAME:
+        train_transforms = valid_transforms
+
     tokenizer = Tokenizer(
         num_classes=1,
         num_bins=CFG.NUM_BINS,

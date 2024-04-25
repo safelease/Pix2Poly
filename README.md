@@ -4,6 +4,8 @@
 
 ## Datasets preparation
 
+## Configurations
+
 ## Training
 
 Start training with the following command:

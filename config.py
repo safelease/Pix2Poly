@@ -3,7 +3,7 @@ import torch
 class CFG:
     IMG_PATH = ''
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    DATASET = f"inria_coco_224_negAug"
+    DATASET = f"inria_coco_224_10Images"
     TRAIN_IMG_DIR = f"./data/{DATASET}/train_images"
     TRAIN_MASK_DIR = f"./data/{DATASET}/train_gts"
     VAL_IMG_DIR = f"./data/{DATASET}/val_images"
@@ -72,11 +72,11 @@ class CFG:
     generation_steps = (N_VERTICES * 2) + 1  # sequence length during prediction. Should not be more than max_len
     run_eval = False
 
-    # EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}_BS{BATCH_SIZE}_{NUM_EPOCHS}epochs"
-    EXPERIMENT_NAME = f"CYENS_CLUSTER_train_Pix2Poly_AUGSRUNS_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
+    EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}_BS{BATCH_SIZE}_{NUM_EPOCHS}epochs"
+    # EXPERIMENT_NAME = f"CYENS_CLUSTER_train_Pix2Poly_AUGSRUNS_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
 
     if "debug" in EXPERIMENT_NAME:
-        BATCH_SIZE = 10
+        BATCH_SIZE = 5
         NUM_WORKERS = 0
         SAVE_BEST = False
         SAVE_LATEST = False
