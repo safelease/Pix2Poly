@@ -1,18 +1,13 @@
-import code
 from PIL import Image
 import numpy as np
-from functools import partial
 import os
 from os import path as osp
-# from crowdai_utils import Dataset
 from pycocotools.coco import COCO
-from pycocotools import mask as cocomask
 from config import CFG
 
 import torch
 from torch.utils.data import Dataset
 import albumentations as A
-from sklearn.model_selection import StratifiedGroupKFold
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -47,20 +42,6 @@ class InriaCocoDataset(Dataset):
 
         # https://math.stackexchange.com/questions/2481213/adjacency-matrix-and-changing-order-of-vertices
         new_perm = torch.mm(torch.mm(transform_arr, old_perm), transform_arr.T)
-        # new_perm = torch.zeros_like(old_perm)
-
-        # # generate new perm matrix based on shuffling indices.
-        # for i in range(len(shuffle_idxs)):
-        #     new_i = shuffle_idxs[i]
-        #     new_j = shuffle_idxs[old_perm[i].nonzero().item()]
-        #     new_perm[new_i, new_j] = 1.
-
-        # # Add self connections of unconnected vertices.
-        # for i in range(Nv):
-        #     row = new_perm[i, :]
-        #     col = new_perm[:, i]
-        #     if torch.sum(row) == 0 or torch.sum(col) == 0:
-        #         new_perm[i, i] = 1.
 
         return new_perm
 
@@ -208,7 +189,6 @@ class InriaCocoDataset_val(Dataset):
         mask = mask / 255. if mask.max() == 255 else mask
         mask = np.clip(mask, 0, 1)
 
-        # corner_coords = np.clip(np.array(corner_coords), 0, 299)
         corner_coords = np.flip(np.round(corner_coords, 0), axis=-1).astype(np.int32)
 
         if len(corner_coords) > 0.:

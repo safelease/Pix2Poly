@@ -5,7 +5,7 @@ from config import CFG
 
 class Tokenizer:
     def __init__(self, num_classes: int, num_bins: int, width: int, height: int, max_len=256):
-        self.num_classes = num_classes  # for INRIA / CrowdAI dataset, num_classes = 1 (building class)
+        self.num_classes = num_classes
         self.num_bins = num_bins
         self.width = width
         self.height = height
@@ -32,7 +32,6 @@ class Tokenizer:
         return x.astype('float32') / (self.num_bins - 1)
     
     def __call__(self, coords: np.array, shuffle=True):
-        # coords = np.array(coords)
 
         if len(coords) > 0:
             coords[:, 0] = coords[:, 0] / self.width
@@ -53,7 +52,6 @@ class Tokenizer:
         tokenized = [self.BOS_code]
         for coord in coords:
             tokens = list(coord)
-            # tokens.append(self.EOS_code)
 
             tokenized.extend(list(map(int, tokens)))
         tokenized.append(self.EOS_code)
@@ -69,14 +67,12 @@ class Tokenizer:
         tokens = tokens[mask]
         tokens = tokens[1:-1]
         assert len(tokens) % 2 == 0, "Invalid tokens!"
-        # print(len(tokens))
 
         coords = []
         for i in range(2, len(tokens)+1, 2):
             coord = tokens[i-2: i]
             coords.append([int(item) for item in coord])
         coords = np.array(coords)
-        # print(coords.shape)
         coords = self.dequantize(coords)
 
         if len(coords) > 0:

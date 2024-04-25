@@ -11,7 +11,6 @@ sys.path.insert(1, os.getcwd())
 from config import CFG
 from utils import (
     create_mask,
-    permutations_to_polygons,
 )
 
 
@@ -67,7 +66,6 @@ class ScoreNet(nn.Module):
         feats = feats[:, 1:]
         feats = feats.unsqueeze(2)
         feats = feats.view(feats.size(0), feats.size(1)//2, 2, feats.size(3))
-        # feats = feats.view(feats.size(0), feats.size(1)*2, feats.size(3))
         feats = torch.mean(feats, dim=2)
 
         x = torch.transpose(feats, 1, 2)
@@ -77,15 +75,15 @@ class ScoreNet(nn.Module):
         x = torch.cat((x, t), dim=1)
 
         x = self.conv1(x)
-        x = self.bn1(x)  # do BatchNorm for batch_size > 1
+        x = self.bn1(x)
         x = self.relu(x)
 
         x = self.conv2(x)
-        x = self.bn2(x)  # do BatchNorm for batch_size > 1
+        x = self.bn2(x)
         x = self.relu(x)
 
         x = self.conv3(x)
-        x = self.bn3(x)  # do BatchNorm for batch_size > 1
+        x = self.bn3(x)
         x = self.relu(x)
 
         x = self.conv4(x)
@@ -193,7 +191,6 @@ class Decoder(nn.Module):
         )
 
         preds = preds.transpose(0, 1)
-        # code.interact(local=locals())
         return self.output(preds)[:, length-1, :], preds
 
 
@@ -217,11 +214,6 @@ class EncoderDecoder(nn.Module):
 
         perm_mat = log_optimal_transport(perm_mat, self.bin_score, self.cfg.SINKHORN_ITERATIONS)[:, :perm_mat.shape[1], :perm_mat.shape[2]]
         perm_mat = F.softmax(perm_mat, dim=-1)  # TODO: perhaps try gumbel softmax here?
-        # perm_mat = F.gumbel_softmax(perm_mat, tau=1.0, hard=False)
-        # coords = preds[:, :-1]  # remove EOS from prediction in forward pass.
-        # coords = torch.softmax(coords, dim=-1).argmax(dim=-1)
-        # coords = coords.view(coords.shape[0], coords.shape[1]//2, 2)
-        # batch_polygons = permutations_to_polygons((perm_mat >= 0.5).float(), coords, out='torch')  # list of polygon coordinate tensors
 
         return preds, perm_mat
 

@@ -4,7 +4,6 @@ class CFG:
     IMG_PATH = ''
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     DATASET = f"inria_coco_224_negAug"
-    # PREPROCESS = check_preprocess(DATASET) if "inria" in DATASET and "coco" not in DATASET else False
     TRAIN_IMG_DIR = f"./data/{DATASET}/train_images"
     TRAIN_MASK_DIR = f"./data/{DATASET}/train_gts"
     VAL_IMG_DIR = f"./data/{DATASET}/val_images"
@@ -23,14 +22,12 @@ class CFG:
 
     if "inria" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
-        # N_VERTICES = 384  # maximum number of vertices per image in dataset.
     elif "crowdai" in DATASET:
         N_VERTICES = 256  # maximum number of vertices per image in dataset.
     elif "spacenet" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
 
     SINKHORN_ITERATIONS = 100
-    # MAX_LEN = 512  # maximum sequence length during training.
     MAX_LEN = (N_VERTICES*2) + 2
     if "crowdai" in DATASET:
         IMG_SIZE = 300
@@ -60,8 +57,6 @@ class CFG:
     SAVE_LATEST = True
     SAVE_EVERY = 10
     VAL_EVERY = 1
-    # SAVE_EVERY = NUM_EPOCHS
-    # VAL_EVERY = 50
 
     MODEL_NAME = f'vit_small_patch{PATCH_SIZE}_{INPUT_SIZE}_dino'
     # MODEL_NAME = 'deit_small_patch16_224'

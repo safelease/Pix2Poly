@@ -2,13 +2,10 @@ import os
 import cv2
 import random
 import numpy as np
-import pandas as pd
-from functools import partial
 from scipy.optimize import linear_sum_assignment
 
 import torch
 import torchvision
-from torch.utils.data import DataLoader
 from transformers import top_k_top_p_filtering
 from torchmetrics.functional.classification import binary_jaccard_index, binary_accuracy
 from config import CFG
@@ -187,10 +184,8 @@ def test_generate(model, x, tokenizer, max_len=50, top_k=0, top_p=1):
         for i in range(max_len):
             if isinstance(model, torch.nn.parallel.DistributedDataParallel):
                 preds, feats = model.module.predict(x, batch_preds)
-                # perm_preds = model.module.scorenet1(feats) + torch.transpose(model.module.scorenet2(feats), 1, 2)
             else:
                 preds, feats = model.predict(x, batch_preds)
-                # perm_preds = model.scorenet1(feats) + torch.transpose(model.scorenet2(feats), 1, 2)
             preds = top_k_top_p_filtering(preds, top_k=top_k, top_p=top_p)  # if top_k and top_p are set to default, this line does nothing.
             if i % 2 == 0:
                 confs_ = torch.softmax(preds, dim=-1).sort(axis=-1, descending=True)[0][:, 0].cpu()
@@ -217,7 +212,6 @@ def postprocess(batch_preds, batch_confs, tokenizer):
     all_coords = []
     all_confs = []
     for i, EOS_idx in enumerate(EOS_idxs.tolist()):
-        # code.interact(local=locals())
         if EOS_idx == 0:
             all_coords.append(None)
             all_confs.append(None)
@@ -249,8 +243,6 @@ def save_single_predictions_as_images(
         idx, (x, y_mask, y_corner_mask, y, y_perm) = 0, next(loader_iterator)
         batch_preds, batch_confs, perm_preds = test_generate(model, x, tokenizer, max_len=CFG.generation_steps, top_k=0, top_p=1)
         vertex_coords, confs = postprocess(batch_preds, batch_confs, tokenizer)
-        # print(f"batch_preds: {batch_preds.shape}")
-        # print(f"batch_preds min: {batch_preds.min()},  max: {batch_preds.max()}")
 
         all_coords.extend(vertex_coords)
         all_confs.extend(confs)
@@ -264,11 +256,8 @@ def save_single_predictions_as_images(
             padd = torch.ones((CFG.N_VERTICES - len(coord), 2)).fill_(tokenizer.PAD_code)
             coord = torch.cat((coord, padd), dim=0)
             coords.append(coord)
-        # coords = pad_sequence(coords, batch_first=True, padding_value=CFG.PAD_IDX)
         batch_polygons = permutations_to_polygons(perm_preds, coords, out='torch')  # list of polygon coordinate tensors
     
-    # print(len(all_coords))
-    # print(x.shape)
     B, C, H, W = x.shape
     # Write predicted vertices as mask to disk.
     vertex_mask = np.zeros((B, 1, H, W))
@@ -282,13 +271,6 @@ def save_single_predictions_as_images(
     vertex_mask = torch.from_numpy(vertex_mask)
     if not os.path.exists(os.path.join(folder, 'corners_mask')):
         os.makedirs(os.path.join(folder, 'corners_mask'))
-    # code.interact(local=locals())
-    # vertex_out = torch.zeros_like(x)
-    # for b in range(B):
-    #     vertex_out[b] = torchvision.utils.draw_segmentation_masks(
-    #         (x[b]*255).to(dtype=torch.uint8),
-    #         vertex_mask[b, 0].bool()
-    #     )
     vertex_pred_vis = torch.zeros_like(x)
     for b in range(B):
         vertex_pred_vis[b] = torchvision.utils.draw_segmentation_masks(
@@ -311,7 +293,6 @@ def save_single_predictions_as_images(
     polygons = np.zeros((B, 1, H, W))
     for b in range(B):
         for c in range(len(batch_polygons[b])):
-            # print(batch_polys[b][c].shape)
             poly = batch_polygons[b][c]
             poly = poly[poly[:, 0] != tokenizer.PAD_code]
             cnt = np.flip(np.int32(poly.cpu()), 1)
@@ -369,10 +350,8 @@ def save_single_predictions_as_images(
             cx, cy = corner
             cv2.circle(ymask_out[b, 0], (int(cy), int(cx)), 3, 255, -1)
     ymask_out = torch.from_numpy(ymask_out)
-    # code.interact(local=locals())
     torchvision.utils.save_image(ymask_out/255., f"{folder}/gt_mask_{idx}.png")
     torchvision.utils.save_image(y_corner_mask*255, f"{folder}/gt_corners_{idx}.png")
     torchvision.utils.save_image(y_perm[:, None, :, :]*255, f"{folder}/gt_perm_matrix_{idx}.png")
-    # code.interact(local=locals())
 
     return metrics_dict

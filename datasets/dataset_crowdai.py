@@ -1,18 +1,13 @@
-import code
 from PIL import Image
 import numpy as np
-from functools import partial
 import os
 from os import path as osp
-# from crowdai_utils import Dataset
 from pycocotools.coco import COCO
-from pycocotools import mask as cocomask
 from config import CFG
 
 import torch
 from torch.utils.data import Dataset
 import albumentations as A
-from sklearn.model_selection import StratifiedGroupKFold
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -111,17 +106,6 @@ class CrowdAIDataset(Dataset):
 
         if len(corner_coords) > CFG.N_VERTICES:
             corner_coords = corner_coords[:CFG.N_VERTICES]
-        # if 0 < len(corner_coords) < perm_matrix.shape[0]:
-        #     pad_count = perm_matrix.shape[0] - len(corner_coords)
-        #     pad_arr = np.zeros((pad_count, 2)) + self.pad_value
-        #     corner_coords = np.concatenate((corner_coords, pad_arr))
-        # elif len(corner_coords) > perm_matrix.shape[0]:
-        #     corner_coords = corner_coords[:perm_matrix.shape[0]]
-        # elif len(corner_coords) == 0:
-        #     corner_coords = np.zeros((perm_matrix.shape[0], 2)) + self.pad_value
-        # else:
-        #     pass
-        # corner_coords = corner_coords.astype(np.float32)
 
         if self.transform is not None:
             augmentations = self.transform(image=image, masks=masks, keypoints=corner_coords.tolist())
@@ -240,7 +224,7 @@ class CrowdAIDatasetTest(Dataset):
         self.image_dir = image_dir
         self.transform = transform
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-    
+
     def __getitem__(self, index):
         img_path = osp.join(self.image_dir, self.images[index])
         image = np.array(Image.open(img_path).convert("RGB"))
@@ -250,6 +234,6 @@ class CrowdAIDatasetTest(Dataset):
 
         image = torch.FloatTensor(image)
         return image
-    
+
     def __len__(self):
         return len(self.images)

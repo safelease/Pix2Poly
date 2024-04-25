@@ -1,18 +1,12 @@
-import code
 from PIL import Image
 import numpy as np
-from functools import partial
 import os
 from os import path as osp
-# from crowdai_utils import Dataset
 from pycocotools.coco import COCO
-from pycocotools import mask as cocomask
 from config import CFG
 
 import torch
 from torch.utils.data import Dataset
-import albumentations as A
-from sklearn.model_selection import StratifiedGroupKFold
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -76,12 +70,10 @@ class SpacenetCocoDataset(Dataset):
         mask = mask / 255. if mask.max() == 255 else mask
         mask = np.clip(mask, 0, 1)
 
-        # corner_coords = np.clip(np.array(corner_coords), 0, 299)
         corner_coords = np.flip(np.round(corner_coords, 0), axis=-1).astype(np.int32)
 
         if len(corner_coords) > 0.:
             corner_mask[corner_coords[:, 0], corner_coords[:, 1]] = 1.
-        # corner_coords = (corner_coords / img['width']) * CFG.INPUT_WIDTH
 
         ############# START: Generate gt permutation matrix. #############
         v_count = 0
@@ -179,12 +171,10 @@ class SpacenetCocoDataset_val(Dataset):
         mask = mask / 255. if mask.max() == 255 else mask
         mask = np.clip(mask, 0, 1)
 
-        # corner_coords = np.clip(np.array(corner_coords), 0, 299)
         corner_coords = np.flip(np.round(corner_coords, 0), axis=-1).astype(np.int32)
 
         if len(corner_coords) > 0.:
             corner_mask[corner_coords[:, 0], corner_coords[:, 1]] = 1.
-        # corner_coords = (corner_coords / img['width']) * CFG.INPUT_WIDTH
 
         ############# START: Generate gt permutation matrix. #############
         v_count = 0
@@ -232,37 +222,6 @@ class SpacenetCocoDataset_val(Dataset):
             coords_seqs = corner_coords
 
         return image, mask[None, ...], corner_mask[None, ...], coords_seqs, perm_matrix, torch.tensor([img['id']])
-
-
-def collate_fn(batch, max_len, pad_idx):
-    """
-    if max_len:
-        the sequences will all be padded to that length.
-    """
-
-    image_batch, mask_batch, coords_mask_batch, coords_seq_batch, perm_matrix_batch = [], [], [], [], []
-    for image, mask, c_mask, seq, perm_mat in batch:
-        image_batch.append(image)
-        mask_batch.append(mask)
-        coords_mask_batch.append(c_mask)
-        coords_seq_batch.append(seq)
-        perm_matrix_batch.append(perm_mat)
-
-    coords_seq_batch = pad_sequence(
-        coords_seq_batch,
-        padding_value=pad_idx,
-        batch_first=True
-    )
-
-    if max_len:
-        pad = torch.ones(coords_seq_batch.size(0), max_len - coords_seq_batch.size(1)).fill_(pad_idx).long()
-        coords_seq_batch = torch.cat([coords_seq_batch, pad], dim=1)
-
-    image_batch = torch.stack(image_batch)
-    mask_batch = torch.stack(mask_batch)
-    coords_mask_batch = torch.stack(coords_mask_batch)
-    perm_matrix_batch = torch.stack(perm_matrix_batch)
-    return image_batch, mask_batch, coords_mask_batch, coords_seq_batch, perm_matrix_batch
 
 
 class SpacenetCocoDatasetTest(Dataset):

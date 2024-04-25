@@ -7,7 +7,6 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from transformers import (
     get_linear_schedule_with_warmup,
-    get_cosine_with_hard_restarts_schedule_with_warmup,
 )
 from torch.utils.tensorboard import SummaryWriter
 
@@ -18,7 +17,6 @@ from utils import (
     load_checkpoint,
 )
 from ddp_utils import (
-    is_main_process,
     get_inria_loaders,
     get_crowdai_loaders,
     get_spacenet_loaders
@@ -31,8 +29,6 @@ from models.model import (
 )
 
 from engine import train_eval
-
-from reg_losses import VertexMSELoss, CosineAngleLoss, CosineSimilarityLoss
 
 from torch import distributed as dist
 import torch.multiprocessing
@@ -85,7 +81,7 @@ def main():
             # A.RGBShift(),
             A.ToGray(p=0.4),
             A.GaussNoise(),
-            # ToTensor doesn't divide by 255 like in PyTorch,
+            # ToTensorV2 of albumentations doesn't divide by 255 like in PyTorch,
             # it is done inside Normalize function.
             A.Normalize(
                 mean=[0.0, 0.0, 0.0],
@@ -184,13 +180,6 @@ def main():
     model = EncoderDecoder(cfg=CFG, encoder=encoder, decoder=decoder)
     model.to(CFG.DEVICE)
 
-    # # Convert BatchNorm in model to SyncBatchNorm.
-    # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-
-    # # Wrap model with distributed data parallel.
-    # local_rank = int(os.environ["LOCAL_RANK"])
-    # model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
-
     weight = torch.ones(CFG.PAD_IDX + 1, device=CFG.DEVICE)
     weight[tokenizer.num_bins:tokenizer.BOS_code] = 0.0
     # weight[tokenizer.EOS_code] = 0.01
@@ -198,9 +187,6 @@ def main():
     # weight[-3] = 0.01
     vertex_loss_fn = nn.CrossEntropyLoss(ignore_index=CFG.PAD_IDX, label_smoothing=CFG.LABEL_SMOOTHING, weight=weight)
     perm_loss_fn = nn.BCELoss()
-    vertex_reg_loss_fn = VertexMSELoss(normalized=True)
-    # angle_reg_loss_fn = CosineAngleLoss()
-    angle_reg_loss_fn = CosineSimilarityLoss()
 
     optimizer = optim.AdamW(model.parameters(), lr=CFG.LR, weight_decay=CFG.WEIGHT_DECAY, betas=(0.9, 0.95))
 
@@ -239,8 +225,6 @@ def main():
         tokenizer,
         vertex_loss_fn,
         perm_loss_fn,
-        vertex_reg_loss_fn,
-        angle_reg_loss_fn,
         optimizer,
         lr_scheduler=lr_scheduler,
         step='batch',
