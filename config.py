@@ -43,8 +43,6 @@ class CFG:
     LABEL_SMOOTHING = 0.0
     vertex_loss_weight = 1.0
     perm_loss_weight = 10.0
-    vertex_reg_loss_weight = 0.0
-    angle_reg_loss_weight = 0.0
     SHUFFLE_TOKENS = False  # order gt vertex tokens randomly every time
 
     BATCH_SIZE = 24
@@ -72,11 +70,11 @@ class CFG:
     generation_steps = (N_VERTICES * 2) + 1  # sequence length during prediction. Should not be more than max_len
     run_eval = False
 
-    EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}_BS{BATCH_SIZE}_{NUM_EPOCHS}epochs"
+    EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}__{NUM_EPOCHS}epochs"
     # EXPERIMENT_NAME = f"CYENS_CLUSTER_train_Pix2Poly_AUGSRUNS_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
 
     if "debug" in EXPERIMENT_NAME:
-        BATCH_SIZE = 5
+        BATCH_SIZE = 10
         NUM_WORKERS = 0
         SAVE_BEST = False
         SAVE_LATEST = False
