@@ -2,8 +2,8 @@
 
 # WACV 2025
 
-[Yeshwanth Kumar Adimoolam](), [Charalambos Poullis](), [Melinos Averkiou]()
-CYENS CoE, Cyprus 1, Concordia University 2
+[Yeshwanth Kumar Adimoolam]()<sup>1</sup>, [Charalambos Poullis]()<sup>2</sup>, [Melinos Averkiou]()<sup>1</sup><br>
+<sup>1</sup>CYENS CoE, Cyprus, <sup>2</sup>Concordia University
 
 ### Abstract:
 
