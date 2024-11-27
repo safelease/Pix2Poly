@@ -5,6 +5,8 @@
     <sup>1</sup>CYENS CoE, Cyprus, <sup>2</sup>Concordia University
 </div>
 
+<img src="./assets/sfo7.png" width=80% height=80%>
+
 [[Project Webpage]()]    [[Paper]()]    [[Video]()]
 
 ### Abstract:
