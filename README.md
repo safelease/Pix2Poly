@@ -1,9 +1,11 @@
 <div align="center">
     <h2 align="center">Pix2Poly: A Sequence Prediction Method for End-to-end Polygonal Building Footprint Extraction</h2>
     <h3 align="center">WACV 2025</h3>
-    <a href="https://yeshwanth95.github.io/">Yeshwanth Kumar Adimoolam<sup>1</sup></a>, <a href="https://poullis.org/">Charalambos Poullis<sup>2</sup></a>, <a href="https://melinos.github.io/">Melinos Averkiou<sup>1</sup></a>
+    <a href="https://yeshwanth95.github.io/">Yeshwanth Kumar Adimoolam<sup>1</sup></a>, <a href="https://poullis.org/">Charalambos Poullis<sup>2</sup></a>, <a href="https://melinos.github.io/">Melinos Averkiou<sup>1</sup></a><br>
     <sup>1</sup>CYENS CoE, Cyprus, <sup>2</sup>Concordia University
 </div>
+
+[[Project Webpage]()]    [[Paper]()]    [[Video]()]
 
 ### Abstract:
 
