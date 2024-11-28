@@ -59,6 +59,8 @@ dependencies:
 
 ## Datasets preparation
 
+See [datasets preprocessing](datasets) for instructions on preparing the various datasets for training/inference.
+
 ## Configurations
 
 ## Training
