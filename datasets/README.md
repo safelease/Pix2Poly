@@ -2,4 +2,4 @@
 
 ## TODO:
 
-- [] Add instructions for preparing each dataset along with preprocessing scripts.
+- [ ] Add instructions for preparing each dataset along with preprocessing scripts.
