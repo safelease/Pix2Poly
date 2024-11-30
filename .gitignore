@@ -10,7 +10,6 @@ scratch
 # Files
 *.jpg
 *.png
-*.json
 *.tar.xz
 *.gif
 *.txt
