@@ -71,6 +71,15 @@ Start training with the following command:
 torchrun --nproc_per_node=<num GPUs> train_ddp.py 
 ```
 
+## Prediction
+
 ## Evaluation
 
-## Prediction
+Once predictions are made, metrics can be computed for the predicted files as follows:
+
+```bash
+python evaluation.py --gt-file path/to/ground/truth/annotation.json --dt-file path/to/prediction.json --eval-type <metric_type>
+```
+
+where `metric_type` can be one of the following: `ciou`, `angle`, `polis`, `topdig`.
+
