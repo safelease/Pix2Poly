@@ -83,3 +83,17 @@ python evaluation.py --gt-file path/to/ground/truth/annotation.json --dt-file pa
 
 where `metric_type` can be one of the following: `ciou`, `angle`, `polis`, `topdig`.
 
+## Citation
+
+Todo:
+- [ ] Add citation to paper.
+
+## Acknowledgements
+
+This repository benefits from the following open-source work. We thank the authors for their great work.
+
+1. [Pix2Seq - official repo](https://github.com/google-research/pix2seq)
+2. [Pix2Seq - unofficial repo](https://github.com/moein-shariatnia/Pix2Seq)
+3. [Frame Field Learning](https://github.com/Lydorn/Polygonization-by-Frame-Field-Learning)
+4. [PolyWorld](https://github.com/zorzi-s/PolyWorldPretrainedNetwork)
+5. [HiSup](https://github.com/SarahwXU/HiSup)
