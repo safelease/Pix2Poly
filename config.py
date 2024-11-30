@@ -4,12 +4,6 @@ class CFG:
     IMG_PATH = ''
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     DATASET = f"inria_coco_224_10Images"
-    TRAIN_IMG_DIR = f"./data/{DATASET}/train_images"
-    TRAIN_MASK_DIR = f"./data/{DATASET}/train_gts"
-    VAL_IMG_DIR = f"./data/{DATASET}/val_images"
-    VAL_MASK_DIR = f"./data/{DATASET}/val_gts"
-    TEST_IMG_DIR = f"./data/{DATASET}/val_images"
-    TEST_MASK_DIR = f"./data/{DATASET}/val_gts"
     if "crowdai" in DATASET or "coco" in DATASET:
         TRAIN_DATASET_DIR = f"./data/{DATASET}/train"
         VAL_DATASET_DIR = f"./data/{DATASET}/val"
@@ -57,11 +51,6 @@ class CFG:
     VAL_EVERY = 1
 
     MODEL_NAME = f'vit_small_patch{PATCH_SIZE}_{INPUT_SIZE}_dino'
-    # MODEL_NAME = 'deit_small_patch16_224'
-    # MODEL_NAME = 'resnet50'
-    # MODEL_NAME = 'hrnet_w48'
-    # NUM_PATCHES = 196
-    # NUM_PATCHES = 576
     NUM_PATCHES = int((INPUT_SIZE // PATCH_SIZE) ** 2)
 
     LR = 4e-4

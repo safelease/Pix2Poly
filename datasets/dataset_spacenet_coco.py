@@ -7,7 +7,6 @@ from config import CFG
 
 import torch
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
 
 
 class SpacenetCocoDataset(Dataset):
@@ -229,7 +228,7 @@ class SpacenetCocoDatasetTest(Dataset):
         self.image_dir = image_dir
         self.transform = transform
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-    
+
     def __getitem__(self, index):
         img_path = osp.join(self.image_dir, self.images[index])
         image = np.array(Image.open(img_path).convert("RGB"))
@@ -239,6 +238,6 @@ class SpacenetCocoDatasetTest(Dataset):
 
         image = torch.FloatTensor(image)
         return image
-    
+
     def __len__(self):
         return len(self.images)

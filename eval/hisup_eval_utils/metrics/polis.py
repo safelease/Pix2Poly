@@ -50,7 +50,7 @@ def polis(coords, bndry):
                 of a polygon).
         bndry: A Shapely linestring (presumably the boundary of
         another polygon).
-    
+
     Returns:
         The "polis" metric for this pair.  You usually compute this in
         both directions to preserve symmetry.
@@ -135,7 +135,7 @@ class PolisEval():
             else:
                 polis_tot += img_polis_avg
                 num_valid_imgs += 1
-        
+
         polis_avg = polis_tot / num_valid_imgs
 
         print('average polis: %f' % (polis_avg))

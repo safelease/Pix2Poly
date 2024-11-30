@@ -65,12 +65,12 @@ class AverageMeter:
 
     def reset(self):
         self.avg, self.sum, self.count = [0]*3
-    
+
     def update(self, val, count=1):
         self.count += count
         self.sum += val * count
         self.avg = self.sum / self.count
-    
+
     def __repr__(self) -> str:
         text = f"{self.name}: {self.avg:.4f}"
         return text
@@ -96,6 +96,7 @@ def scores_to_permutations(scores):
     return torch.tensor(perm)
 
 
+# TODO: add permalink to polyworld repo
 def permutations_to_polygons(perm, graph, out='torch'):
     B, N, N = perm.shape
     device = perm.device
@@ -124,7 +125,7 @@ def permutations_to_polygons(perm, graph, out='torch'):
         b_perm = perm[b]
         b_graph = graph[b]
         b_diag = diag[b]
-        
+
         idx = torch.arange(N, device=perm.device)[b_diag]
 
         if idx.shape[0] > 0:
@@ -160,7 +161,7 @@ def permutations_to_polygons(perm, graph, out='torch'):
                 else:
                     print("Indicate a valid output polygon format")
                     exit()
-        
+
             batch.append(batch_poly)
 
         else:
@@ -192,7 +193,7 @@ def test_generate(model, x, tokenizer, max_len=50, top_k=0, top_p=1):
                 confs.append(confs_)
             preds = sample(preds)
             batch_preds = torch.cat([batch_preds, preds], dim=1)
-        
+
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             perm_preds = model.module.scorenet1(feats) + torch.transpose(model.module.scorenet2(feats), 1, 2)
         else:
@@ -257,7 +258,7 @@ def save_single_predictions_as_images(
             coord = torch.cat((coord, padd), dim=0)
             coords.append(coord)
         batch_polygons = permutations_to_polygons(perm_preds, coords, out='torch')  # list of polygon coordinate tensors
-    
+
     B, C, H, W = x.shape
     # Write predicted vertices as mask to disk.
     vertex_mask = np.zeros((B, 1, H, W))

@@ -211,7 +211,7 @@ def train_eval(
             )
             # torch.save(model.state_dict(), 'best_valid_loss.pth')
             print(f"Saved best val loss model.")
-        
+
         # Save latest checkpoint every epoch.
         if CFG.SAVE_LATEST and is_main_process():
             checkpoint = {
@@ -226,7 +226,7 @@ def train_eval(
                 folder=f"runs/{CFG.EXPERIMENT_NAME}/logs/checkpoints/",
                 filename="latest.pth"
             )
-        
+
         if (epoch + 1) % CFG.SAVE_EVERY == 0 and is_main_process():
             checkpoint = {
                 "state_dict": model.module.state_dict(),

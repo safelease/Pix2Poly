@@ -55,15 +55,11 @@ class ContourEval:
 
         # Compute metric
         args_list = []
-        # i = 1000
         for img_id in self.img_ids:
             for cat_id in self.cat_ids:
                 gts = _gts[img_id, cat_id]
                 dts = _dts[img_id, cat_id]
                 args_list.append((gts, dts))
-                # i -= 1
-            # if i <= 0:
-            #     break
 
         if pool is None:
             measures_list = []

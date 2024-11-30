@@ -74,11 +74,8 @@ def main():
             A.Affine(rotate=[-360, 360], fit_output=True, p=0.8),  # scaled rotations are performed before resizing to ensure rotated and scaled images are correctly resized.
             A.Resize(height=CFG.INPUT_HEIGHT, width=CFG.INPUT_WIDTH),
             A.RandomRotate90(p=1.),
-            # A.HorizontalFlip(p=0.5),
-            # A.VerticalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.5),
             A.ColorJitter(),
-            # A.RGBShift(),
             A.ToGray(p=0.4),
             A.GaussNoise(),
             # ToTensorV2 of albumentations doesn't divide by 255 like in PyTorch,
@@ -88,11 +85,6 @@ def main():
                 std=[1.0, 1.0, 1.0],
                 max_pixel_value=255.0
             ),
-            # A.Normalize(
-            #     mean=[0.4028, 0.4147, 0.3914],
-            #     std=[0.1661, 0.1601, 0.1539],
-            #     max_pixel_value=255.0
-            # ),
             ToTensorV2(),
         ],
         keypoint_params=A.KeypointParams(format='yx', remove_invisible=False)
@@ -124,7 +116,7 @@ def main():
     CFG.PAD_IDX = tokenizer.PAD_code
 
     if "inria" in CFG.DATASET:
-        train_loader, val_loader, test_loader = get_inria_loaders(
+        train_loader, val_loader, _ = get_inria_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
             CFG.TEST_IMAGES_DIR,
@@ -139,7 +131,7 @@ def main():
             CFG.PIN_MEMORY,
         )
     elif "crowdai" in CFG.DATASET:
-        train_loader, val_loader, test_loader = get_crowdai_loaders(
+        train_loader, val_loader, _ = get_crowdai_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
             CFG.TEST_IMAGES_DIR,
@@ -154,7 +146,7 @@ def main():
             CFG.PIN_MEMORY,
         )
     elif "spacenet" in CFG.DATASET:
-        train_loader, val_loader, test_loader = get_spacenet_loaders(
+        train_loader, val_loader, _ = get_spacenet_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
             CFG.TEST_IMAGES_DIR,
@@ -185,9 +177,6 @@ def main():
 
     weight = torch.ones(CFG.PAD_IDX + 1, device=CFG.DEVICE)
     weight[tokenizer.num_bins:tokenizer.BOS_code] = 0.0
-    # weight[tokenizer.EOS_code] = 0.01
-    # weight[tokenizer.PAD_code] = 0.01
-    # weight[-3] = 0.01
     vertex_loss_fn = nn.CrossEntropyLoss(ignore_index=CFG.PAD_IDX, label_smoothing=CFG.LABEL_SMOOTHING, weight=weight)
     perm_loss_fn = nn.BCELoss()
 

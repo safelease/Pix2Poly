@@ -47,7 +47,6 @@ def log_optimal_transport(scores: torch.Tensor, alpha: torch.Tensor, iters: int)
     return Z
 
 
-# TODO: add polyworld link here.
 class ScoreNet(nn.Module):
     def __init__(self, n_vertices, in_channels=512):
         super().__init__()
@@ -213,7 +212,7 @@ class EncoderDecoder(nn.Module):
         perm_mat = perm_mat1 + torch.transpose(perm_mat2, 1, 2)
 
         perm_mat = log_optimal_transport(perm_mat, self.bin_score, self.cfg.SINKHORN_ITERATIONS)[:, :perm_mat.shape[1], :perm_mat.shape[2]]
-        perm_mat = F.softmax(perm_mat, dim=-1)  # TODO: perhaps try gumbel softmax here?
+        perm_mat = F.softmax(perm_mat, dim=-1)  # NOTE: perhaps try gumbel softmax here?
         # perm_mat = F.gumbel_softmax(perm_mat, tau=1.0, hard=False)
 
         return preds, perm_mat
@@ -226,13 +225,11 @@ class EncoderDecoder(nn.Module):
 
 if __name__ == "__main__":
     # run this script as main for debugging.
-
     from tokenizer import Tokenizer
     from torch.nn.utils.rnn import pad_sequence
     import numpy as np
     import torch
     from torch import nn
-    import code
 
     image = torch.randn(1, 3, CFG.INPUT_HEIGHT, CFG.INPUT_WIDTH).to('cuda')
 
@@ -255,7 +252,7 @@ if __name__ == "__main__":
     decoder = Decoder(vocab_size=tokenizer.vocab_size, encoder_len=CFG.NUM_PATCHES, dim=256, num_heads=8, num_layers=6)
     model = EncoderDecoder(encoder, decoder).to('cuda')
     vertex_loss_fn = nn.CrossEntropyLoss(ignore_index=CFG.PAD_IDX)
-    
+
     # Forward pass during training.
     preds_f, perm_mat, batch_polygons = model(image, gt_seqs_input)
     loss = vertex_loss_fn(preds_f.reshape(-1, preds_f.shape[-1]), gt_seqs_expected.reshape(-1))
@@ -264,10 +261,10 @@ if __name__ == "__main__":
     batch_preds = torch.ones(image.size(0), 1).fill_(tokenizer.BOS_code).long().to(CFG.DEVICE)
     batch_feats = torch.ones(image.size(0), 1).fill_(tokenizer.BOS_code).long().to(CFG.DEVICE)
     sample = lambda preds: torch.softmax(preds, dim=-1).argmax(dim=-1).view(-1, 1)
-    
+
     out_coords = []
     out_confs = []
-    
+
     confs = []
     with torch.no_grad():
         for i in range(1 + n_vertices*2):
@@ -319,5 +316,3 @@ if __name__ == "__main__":
 
     print(f"loss : {loss}")
     print(f"loss grad: {loss.requires_grad}")
-
-    code.interact(local=locals())

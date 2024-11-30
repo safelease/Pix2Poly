@@ -24,7 +24,6 @@ def calc_IoU(a, b):
     iou = I/(U + 1e-9)
 
     is_void = U == 0
-    # is_void = U < (224**2)*(0.5/100)
     if is_void:
         return 1.0
     else:
@@ -102,9 +101,6 @@ def compute_IoU_cIoU(input_json, gti_annotations):
         if N_GT > 0:
             nr = N / N_GT
             n_ratios.append(nr)
-
-        # if iou < 0.5:
-        #     print(img['file_name'], img['id'])
 
         bar.set_description("iou: %2.4f, c-iou: %2.4f, ps:%2.4f, rd:%2.4f" % (np.mean(list_iou), np.mean(list_ciou), np.mean(pss), np.mean(rel_difs)))
         bar.refresh()

@@ -16,21 +16,21 @@ class Tokenizer:
         self.PAD_code = self.EOS_code + 1
 
         self.vocab_size = num_bins + 3 #+ num_classes
-    
+
     def quantize(self, x: np.array):
         """
         x is a real number in [0, 1]
         """
 
         return (x * (self.num_bins - 1)).round(0).astype('int')
-    
+
     def dequantize(self, x: np.array):
         """
         x is an integer between [0, num_bins-1]
         """
 
         return x.astype('float32') / (self.num_bins - 1)
-    
+
     def __call__(self, coords: np.array, shuffle=True):
 
         if len(coords) > 0:
@@ -48,7 +48,7 @@ class Tokenizer:
             coords = coords[rand_idxs]
         else:
             rand_idxs = np.arange(0, len(coords))
-        
+
         tokenized = [self.BOS_code]
         for coord in coords:
             tokens = list(coord)

@@ -9,7 +9,6 @@ from eval.hisup_eval_utils.metrics.polis import PolisEval
 from eval.hisup_eval_utils.metrics.angle_eval import ContourEval
 from eval.hisup_eval_utils.metrics.cIoU import compute_IoU_cIoU
 from eval.topdig_eval_utils.metrics.topdig_metrics import compute_mask_metrics
-from eval.topdig_eval_utils.metrics.topdig_metrics_orig import compute_mask_metrics as compute_mask_metrics_flawed
 
 
 def coco_eval(annFile, resFile):
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gt-file", default="")
     parser.add_argument("--dt-file", default="")
-    parser.add_argument("--eval-type", default="coco_iou", choices=["coco_iou", "polis", "angle", "ciou", "topdig", "topdig_auth"])
+    parser.add_argument("--eval-type", default="coco_iou", choices=["coco_iou", "polis", "angle", "ciou", "topdig"])
     args = parser.parse_args()
 
     eval_type = args.eval_type
@@ -65,8 +64,6 @@ if __name__ == "__main__":
         compute_IoU_cIoU(dt_file, gt_file)
     elif eval_type == 'topdig':
         compute_mask_metrics(dt_file, gt_file)
-    elif eval_type == 'topdig_auth':
-        compute_mask_metrics_flawed(dt_file, gt_file)
     else:
         raise RuntimeError('please choose a correct type from \
-                            ["coco_iou", "boundary_iou", "polis", "angle", "ciou", "topdig", "topdig_auth"]')
+                            ["coco_iou", "polis", "angle", "ciou", "topdig"]')

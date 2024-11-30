@@ -6,19 +6,16 @@ import argparse
 from tqdm import tqdm
 
 import torch
-import torchvision
 import cv2
 
 from eval.hisup_eval_utils.metrics.cIoU import calc_IoU
 from torchmetrics.functional.classification import binary_accuracy, binary_f1_score
-# from sklearn.metrics import accuracy_score, f1_score
 
 
 def calc_f1score(mask: np.ndarray, mask_gti: np.ndarray):
     union = np.logical_or(mask, mask_gti)
     U = np.sum(union)
     is_void = U == 0
-    # is_void = U < (224**2)*(0.5/100)
     mask = torch.from_numpy(mask)
     mask_gti = torch.from_numpy(mask_gti)
 
@@ -26,14 +23,12 @@ def calc_f1score(mask: np.ndarray, mask_gti: np.ndarray):
         return 1.0
     else:
         return binary_f1_score(preds=mask, target=mask_gti)
-        # return f1_score(mask_gti, mask)
 
 
 def calc_acc(mask: np.ndarray, mask_gti: np.ndarray):
     union = np.logical_or(mask, mask_gti)
     U = np.sum(union)
     is_void = U == 0
-    # is_void = U < (224**2)*(0.5/100)
     mask = torch.from_numpy(mask)
     mask_gti = torch.from_numpy(mask_gti)
 
@@ -41,7 +36,6 @@ def calc_acc(mask: np.ndarray, mask_gti: np.ndarray):
         return 1.0
     else:
         return binary_accuracy(preds=mask, target=mask_gti)
-        # return accuracy_score(mask_gti, mask)
 
 
 def compute_mask_metrics(input_json, gti_annotations):
@@ -67,13 +61,6 @@ def compute_mask_metrics(input_json, gti_annotations):
     list_f1_topo = []
     list_iou_topo = []
 
-    city_wise_iou_topo = {
-        'austin': [],
-        'chicago': [],
-        'kitsap': [],
-        'tyrol-w': [],
-        'vienna': []
-    }
     for image_id in bar:
 
         img = coco.loadImgs(image_id)[0]
@@ -95,8 +82,6 @@ def compute_mask_metrics(input_json, gti_annotations):
                 mask = mask + m.reshape((img['height'], img['width']))
             for ann in annotation['segmentation']:
                 ann = np.array(ann).reshape(-1, 2)
-                # if 'vienna' in img['file_name']:
-                #     ann[:, 1] -= 5.
                 ann = np.round(ann).astype(np.int32)
                 poly_lines.append(ann)
         cv2.polylines(topo_mask, poly_lines, isClosed=True, color=1., thickness=buffer_thickness)
@@ -132,8 +117,6 @@ def compute_mask_metrics(input_json, gti_annotations):
         mask_gti = mask_gti != 0
         topo_mask_gt = (topo_mask_gt != 0).astype(np.float32)
 
-        # import code; code.interact(local=locals())
-
 
         pacc = calc_acc(mask, mask_gti)
         list_acc.append(pacc)
@@ -149,25 +132,6 @@ def compute_mask_metrics(input_json, gti_annotations):
         iou_topo = calc_IoU(topo_mask, topo_mask_gt)
         list_iou_topo.append(iou_topo)
 
-        # im_city = img['file_name'].split('-')[0]
-        # im_city = ''.join([i for i in im_city if not i.isdigit()])
-        # if im_city == 'tyrol':
-        #     im_city = 'tyrol-w'
-
-        # city_wise_iou_topo[im_city].append(iou_topo)
-
-        # if iou < 0.5:
-        #     print(img['file_name'], img['id'])
-
-        # if iou_topo <= 0.5:
-        #     topo_vis = np.zeros((1, 3, img['width'], img['height']))
-        #     topo_vis[0, 0] = topo_mask_gt
-        #     topo_vis[0, 1] = topo_mask
-        #     topo_vis[0, 2] = topo_mask
-        #     # topo_vis = np.concatenate([topo_mask_gt[None, ...], topo_mask[None, ...]])[:, None, :, :]
-        #     topo_vis = torch.from_numpy(topo_vis)
-        #     torchvision.utils.save_image(topo_vis, f'scratch/vis_inria170_10_lowTopoIou/{img["file_name"].split(".")[0]}.png')
-
         bar.set_description("iou: %2.4f, p-acc: %2.4f, f1:%2.4f, iou-topo: %2.4f, p-acc-topo: %2.4f, f1-topo:%2.4f " % (np.mean(list_iou), np.mean(list_acc), np.mean(list_f1), np.mean(list_iou_topo), np.mean(list_acc_topo), np.mean(list_f1_topo)))
         bar.refresh()
 
@@ -178,10 +142,6 @@ def compute_mask_metrics(input_json, gti_annotations):
     print("Mean IoU-Topo: ", np.mean(list_iou_topo))
     print("Mean P-Acc-Topo: ", np.mean(list_acc_topo))
     print("Mean F1-Score-Topo: ", np.mean(list_f1_topo))
-
-    for k, v in city_wise_iou_topo.items():
-        print(f'{k}: {np.mean(v)}')
-
 
 
 if __name__ == "__main__":

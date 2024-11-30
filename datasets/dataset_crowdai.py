@@ -23,7 +23,7 @@ class CrowdAIDataset(Dataset):
         self.coco = COCO(self.annotations_path)
         self.image_ids = self.coco.getImgIds(catIds=self.coco.getCatIds())
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-    
+
     def __len__(self):
         return len(self.image_ids)
 
@@ -53,7 +53,7 @@ class CrowdAIDataset(Dataset):
         annotations = self.coco.loadAnns(ann_ids)  # annotations of all instances in an image.
 
         image = np.array(Image.open(img_path).convert("RGB"))
-        
+
         mask = np.zeros((img['width'], img['height']))
         corner_coords = []
         corner_mask = np.zeros((img['width'], img['height']), dtype=np.float32)
@@ -69,12 +69,11 @@ class CrowdAIDataset(Dataset):
                 mask += self.coco.annToMask(ins)
         mask = mask / 255. if mask.max() == 255 else mask
         mask = np.clip(mask, 0, 1)
-        
+
         corner_coords = np.clip(np.array(corner_coords), 0, 299)
         corner_coords = np.flip(np.round(corner_coords, 0), axis=-1).astype(np.int32)
-        
+
         corner_mask[corner_coords[:, 0], corner_coords[:, 1]] = 1.
-        # corner_coords = (corner_coords / img['width']) * CFG.INPUT_WIDTH
 
         ############# START: Generate gt permutation matrix. #############
         v_count = 0
@@ -122,14 +121,6 @@ class CrowdAIDataset(Dataset):
         else:
             coords_seqs = corner_coords
 
-        # batch_dict = {
-        #     "image": image,
-        #     "seg_mask": mask,
-        #     "corner_mask": corner_mask[None, :, :],
-        #     "perm_matrix": perm_matrix,
-        #     "corner_coords": coords_seqs
-        # }
-
         return image, mask[None, ...], corner_mask[None, ...], coords_seqs, perm_matrix
 
 
@@ -160,7 +151,7 @@ class CrowdAIDataset_val(Dataset):
         annotations = self.coco.loadAnns(ann_ids)  # annotations of all instances in an image.
 
         image = np.array(Image.open(img_path).convert("RGB"))
-        
+
         mask = np.zeros((img['width'], img['height']))
         for ins in annotations:
             segmentations = ins['segmentation']

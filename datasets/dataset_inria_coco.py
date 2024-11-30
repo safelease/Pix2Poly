@@ -7,7 +7,6 @@ from config import CFG
 
 import torch
 from torch.utils.data import Dataset
-import albumentations as A
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -71,12 +70,10 @@ class InriaCocoDataset(Dataset):
         mask = mask / 255. if mask.max() == 255 else mask
         mask = np.clip(mask, 0, 1)
 
-        # corner_coords = np.clip(np.array(corner_coords), 0, 299)
         corner_coords = np.flip(np.round(corner_coords, 0), axis=-1).astype(np.int32)
 
         if len(corner_coords) > 0.:
             corner_mask[corner_coords[:, 0], corner_coords[:, 1]] = 1.
-        # corner_coords = (corner_coords / img['width']) * CFG.INPUT_WIDTH
 
         ############# START: Generate gt permutation matrix. #############
         v_count = 0
@@ -119,7 +116,6 @@ class InriaCocoDataset(Dataset):
         if self.tokenizer is not None:
             coords_seqs, rand_idxs = self.tokenizer(corner_coords, shuffle=self.shuffle_tokens)
             coords_seqs = torch.LongTensor(coords_seqs)
-            # perm_matrix = torch.cat((perm_matrix[rand_idxs], perm_matrix[len(rand_idxs):]))
             if self.shuffle_tokens:
                 perm_matrix = self.shuffle_perm_matrix_by_indices(perm_matrix, rand_idxs)
         else:
@@ -193,7 +189,6 @@ class InriaCocoDataset_val(Dataset):
 
         if len(corner_coords) > 0.:
             corner_mask[corner_coords[:, 0], corner_coords[:, 1]] = 1.
-        # corner_coords = (corner_coords / img['width']) * CFG.INPUT_WIDTH
 
         ############# START: Generate gt permutation matrix. #############
         v_count = 0
@@ -236,7 +231,6 @@ class InriaCocoDataset_val(Dataset):
         if self.tokenizer is not None:
             coords_seqs, rand_idxs = self.tokenizer(corner_coords, shuffle=self.shuffle_tokens)
             coords_seqs = torch.LongTensor(coords_seqs)
-            # perm_matrix = torch.cat((perm_matrix[rand_idxs], perm_matrix[len(rand_idxs):]))
             if self.shuffle_tokens:
                 perm_matrix = self.shuffle_perm_matrix_by_indices(perm_matrix, rand_idxs)
         else:
@@ -281,7 +275,7 @@ class InriaCocoDatasetTest(Dataset):
         self.image_dir = image_dir
         self.transform = transform
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-    
+
     def __getitem__(self, index):
         img_path = osp.join(self.image_dir, self.images[index])
         image = np.array(Image.open(img_path).convert("RGB"))
@@ -291,6 +285,6 @@ class InriaCocoDatasetTest(Dataset):
 
         image = torch.FloatTensor(image)
         return image
-    
+
     def __len__(self):
         return len(self.images)
