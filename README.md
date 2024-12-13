@@ -7,7 +7,7 @@
 </div>
 
 
-[[Project Webpage]()]    [[Paper]()]    [[Video]()]
+[[Project Webpage]()]    [[Paper](https://arxiv.org/abs/2412.07899)]    [[Video]()]
 
 ### Abstract:
 
@@ -73,6 +73,9 @@ torchrun --nproc_per_node=<num GPUs> train_ddp.py
 
 ## Prediction
 
+Todo:
+ - [ ] Inference scripts are coming soon...
+
 ## Evaluation
 
 Once predictions are made, metrics can be computed for the predicted files as follows:
@@ -85,8 +88,18 @@ where `metric_type` can be one of the following: `ciou`, `angle`, `polis`, `topd
 
 ## Citation
 
-Todo:
-- [ ] Add citation to paper.
+If you find our work useful, please consider citing:
+```bibtex
+@misc{adimoolam2024pix2poly,
+      title={Pix2Poly: A Sequence Prediction Method for End-to-end Polygonal Building Footprint Extraction from Remote Sensing Imagery},
+      author={Yeshwanth Kumar Adimoolam and Charalambos Poullis and Melinos Averkiou},
+      year={2024},
+      eprint={2412.07899},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2412.07899},
+}
+```
 
 ## Acknowledgements
 
