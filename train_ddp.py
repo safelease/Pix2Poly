@@ -20,6 +20,8 @@ from ddp_utils import (
     get_inria_loaders,
     get_crowdai_loaders,
     get_spacenet_loaders
+    get_spacenet_loaders,
+    get_whu_buildings_loaders,
 )
 
 from models.model import (
@@ -147,6 +149,21 @@ def main():
         )
     elif "spacenet" in CFG.DATASET:
         train_loader, val_loader, _ = get_spacenet_loaders(
+            CFG.TRAIN_DATASET_DIR,
+            CFG.VAL_DATASET_DIR,
+            CFG.TEST_IMAGES_DIR,
+            tokenizer,
+            CFG.MAX_LEN,
+            tokenizer.PAD_code,
+            CFG.SHUFFLE_TOKENS,
+            CFG.BATCH_SIZE,
+            train_transforms,
+            valid_transforms,
+            CFG.NUM_WORKERS,
+            CFG.PIN_MEMORY,
+        )
+    elif "whu_buildings" in CFG.DATASET:
+        train_loader, val_loader, _ = get_whu_buildings_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
             CFG.TEST_IMAGES_DIR,
