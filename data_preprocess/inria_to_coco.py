@@ -16,24 +16,10 @@ from shapely.ops import transform as poly_transform
 from shapely.ops import unary_union
 from skimage.measure import label as ski_label
 from skimage.measure import regionprops
-from shapely.geometry import box
 import cv2
-import glob
 import math
 import shapely
 
-def polygon2hbb(poly):
-    """
-    Get horizontal bounding box (match COCO)
-    """
-    p_x = poly[:, 0]
-    p_y = poly[:, 1]
-    hbb_x = np.min(p_x)
-    hbb_y = np.min(p_y)
-    hbb_w = np.around(np.max(p_x) - hbb_x, decimals=2)
-    hbb_h = np.around(np.max(p_y) - hbb_y, decimals=2)
-    hbox = [hbb_x, hbb_y, hbb_w, hbb_h]
-    return [float(i) for i in hbox]
 
 def clip_by_bound(poly, im_h, im_w):
     """
@@ -44,6 +30,7 @@ def clip_by_bound(poly, im_h, im_w):
     p_x = np.clip(p_x, 0.0, im_w-1)
     p_y = np.clip(p_y, 0.0, im_h-1)
     return np.concatenate((p_x[:, np.newaxis], p_y[:, np.newaxis]), axis=1)
+
 
 def crop2patch(im_p, p_h, p_w, p_overlap):
     """
@@ -59,32 +46,6 @@ def crop2patch(im_p, p_h, p_w, p_overlap):
     patch_list = [[i, j, p_w, p_h] for i, j in zip(X.flatten(), Y.flatten())]
     return patch_list
 
-def polygon_in_bounding_box(polygon, bounding_box):
-    """
-    Returns True if all vertices of polygons are inside bounding_box
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    result = np.all(
-        np.logical_and(
-            np.logical_and(bounding_box[0] <= polygon[:, 0], polygon[:, 0] <= bounding_box[0] + bounding_box[2]),
-            np.logical_and(bounding_box[1] <= polygon[:, 1], polygon[:, 1] <= bounding_box[1] + bounding_box[3])
-        )
-    )
-    return result
-
-def transform_poly_to_bounding_box(polygon, bounding_box):
-    """
-    Transform the original coordinates of polygon to bbox
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    transformed_polygon = polygon.copy()
-    transformed_polygon[:, 0] -= bounding_box[0]
-    transformed_polygon[:, 1] -= bounding_box[1]
-    return transformed_polygon
 
 def bmask_to_poly(b_im, simplify_ind, tolerance=1.8, ):
     """
@@ -289,17 +250,12 @@ def lt_crop(im, gt, crop_size):
     gt_cropped = gt[0:crop_size, 0:crop_size]
     return im_cropped, gt_cropped
 
-def affine_transform(pt, t):
-    new_pt = np.array([pt[0], pt[1], 1.], dtype=np.float32).T
-    new_pt = np.dot(t, new_pt)
-    return new_pt[:2]
-
 
 if __name__ == '__main__':
-    input_image_path = './data/inria_coco/raw/train/images/'
+    input_image_path = '../data/inria_coco/raw/train/images/'
     input_gt_path = './data/inria_coco/raw/train/gt/'
 
-    save_path = './data/inria_coco_224_rotAugs_negAug/train/'
+    save_path = './data/inria_coco_224_negAug/train/'
 
     cities = ['austin', 'chicago', 'kitsap', 'tyrol-w', 'vienna']
     val_set = [str(i) for i in range(1, 6)]
