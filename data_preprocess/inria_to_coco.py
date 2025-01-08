@@ -252,10 +252,11 @@ def lt_crop(im, gt, crop_size):
 
 
 if __name__ == '__main__':
-    input_image_path = '../data/inria_coco/raw/train/images/'
-    input_gt_path = './data/inria_coco/raw/train/gt/'
+    input_image_path = '../data/inria_raw/train/images/'
+    input_gt_path = '../data/inria_raw/train/gt/'
 
-    save_path = './data/inria_coco_224_negAug/train/'
+    split = "train"  # 'train' or 'val'
+    save_path = f'../data/inria_coco_224_negAug/{split}/'
 
     cities = ['austin', 'chicago', 'kitsap', 'tyrol-w', 'vienna']
     val_set = [str(i) for i in range(1, 6)]
@@ -279,7 +280,7 @@ if __name__ == '__main__':
 
     # main dict for annotation file
     output_data_train = {
-        'info': {'district': 'Inria', 'description': 'building footprints', 'contributor': 'whu'},
+        'info': {'district': 'Inria', 'description': 'building footprints', 'contributor': ''},
         'categories': [{'id': 100, 'name': 'building'}],
         'images': [],
         'annotations': [],
@@ -298,7 +299,13 @@ if __name__ == '__main__':
         gt_im_data = io.imread(os.path.join(input_gt_path, label_name + '.tif'))
         im_h, im_w, _ = image_data.shape
 
-        if label_info[1] not in val_set and label_info[0] in cities:
+        if split == "train":
+            condition = label_info[1] not in val_set and label_info[0] in cities
+        elif split == "val":
+            condition = label_info[1] in val_set and label_info[0] in cities
+        else:
+            raise ValueError(f"Split {split} is invalid. Choose either 'train' or 'val'.")
+        if condition:
             # for training set, split image to 512x512
             patch_list = crop2patch(image_data.shape, patch_width, patch_height, patch_overlap)
             for pid, pa in enumerate(patch_list):
@@ -367,7 +374,8 @@ if __name__ == '__main__':
                 return lambda x, y: (x, -y)
             tile_polygons = poly_transform(reflection(), tile_polygons)
             tile_polygons = shapely.geometry.mapping(tile_polygons)
-            with open(os.path.join(save_path, 'polygons', label_name+'.geojson'), 'w') as o:
+            os.makedirs(os.path.join(save_path, 'tile_polygons'), exist_ok=True)
+            with open(os.path.join(save_path, 'tile_polygons', label_name+'.geojson'), 'w') as o:
                 # print(tile_polygons, file=o)
                 json.dump(tile_polygons, o)
 
