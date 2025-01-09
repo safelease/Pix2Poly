@@ -6,7 +6,6 @@ from torch.nn.utils.rnn import pad_sequence
 import torch
 
 from datasets.dataset_inria_coco import InriaCocoDataset, InriaCocoDatasetTest
-from datasets.dataset_crowdai import CrowdAIDataset, CrowdAIDatasetTest
 from datasets.dataset_spacenet_coco import SpacenetCocoDataset, SpacenetCocoDatasetTest
 from datasets.dataset_whu_buildings_coco import WHUBuildingsCocoDataset, WHUBuildingsCocoDatasetTest
 from datasets.dataset_mass_roads import MassRoadsDataset, MassRoadsDatasetTest
@@ -59,76 +58,6 @@ def collate_fn(batch, max_len, pad_idx):
     coords_mask_batch = torch.stack(coords_mask_batch)
     perm_matrix_batch = torch.stack(perm_matrix_batch)
     return image_batch, mask_batch, coords_mask_batch, coords_seq_batch, perm_matrix_batch
-
-
-def get_crowdai_loaders(
-    train_dataset_dir,
-    val_dataset_dir,
-    test_images_dir,
-    tokenizer,
-    max_len,
-    pad_idx,
-    shuffle_tokens,
-    batch_size,
-    train_transform,
-    val_transform,
-    num_workers=2,
-    pin_memory=True
-):
-
-    train_ds = CrowdAIDataset(
-        dataset_dir=train_dataset_dir,
-        transform=train_transform,
-        tokenizer=tokenizer,
-        shuffle_tokens=shuffle_tokens
-    )
-
-    train_sampler = DistributedSampler(dataset=train_ds, shuffle=True)
-
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        collate_fn=partial(collate_fn, max_len=max_len, pad_idx=pad_idx),
-        sampler=train_sampler,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=True
-    )
-
-    valid_ds = CrowdAIDataset(
-        dataset_dir=val_dataset_dir,
-        transform=val_transform,
-        tokenizer=tokenizer,
-        shuffle_tokens=shuffle_tokens
-    )
-
-    valid_sampler = DistributedSampler(dataset=valid_ds, shuffle=False)
-
-    valid_loader = DataLoader(
-        valid_ds,
-        batch_size=batch_size,
-        collate_fn=partial(collate_fn, max_len=max_len, pad_idx=pad_idx),
-        sampler=valid_sampler,
-        num_workers=0,
-        pin_memory=True,
-    )
-
-    test_ds = CrowdAIDatasetTest(
-        image_dir=test_images_dir,
-        transform=val_transform
-    )
-
-    test_sampler = DistributedSampler(dataset=test_ds, shuffle=False)
-
-    test_loader = DataLoader(
-        test_ds,
-        batch_size=batch_size,
-        sampler=test_sampler,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-    )
-
-    return train_loader, valid_loader, test_loader
 
 
 def get_inria_loaders(
@@ -409,3 +338,4 @@ def get_mass_roads_loaders(
     )
 
     return train_loader, valid_loader, test_loader
+

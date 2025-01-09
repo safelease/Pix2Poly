@@ -3,11 +3,24 @@ import torch
 class CFG:
     IMG_PATH = ''
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    DATASET = f"inria_coco_224_10Images"
-    if "crowdai" in DATASET or "coco" in DATASET:
+
+    """
+    supported datasets are:
+    - inria_coco_224_negAug
+    - spacenet_coco
+    - whu_buildings_224_coco
+    - mass_roads_224
+    """
+    DATASET = f"inria_coco_224_negAug"
+    if "coco" in DATASET:
         TRAIN_DATASET_DIR = f"./data/{DATASET}/train"
         VAL_DATASET_DIR = f"./data/{DATASET}/val"
         TEST_IMAGES_DIR = f"./data/{DATASET}/val/images"
+    elif "mass_roads" in DATASET:
+        TRAIN_DATASET_DIR = f"./data/{DATASET}/train"
+        VAL_DATASET_DIR = f"./data/{DATASET}/valid"
+        TEST_IMAGES_DIR = f"./data/{DATASET}/test/images"
+
 
     TRAIN_DDP = True
     NUM_WORKERS = 2
@@ -16,18 +29,22 @@ class CFG:
 
     if "inria" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
-    elif "crowdai" in DATASET:
-        N_VERTICES = 256  # maximum number of vertices per image in dataset.
     elif "spacenet" in DATASET:
+        N_VERTICES = 192  # maximum number of vertices per image in dataset.
+    elif "whu_buildings" in DATASET:
+        N_VERTICES = 144  # maximum number of vertices per image in dataset.
+    elif "mass_roads" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
 
     SINKHORN_ITERATIONS = 100
     MAX_LEN = (N_VERTICES*2) + 2
-    if "crowdai" in DATASET:
-        IMG_SIZE = 300
-    elif "inria" in DATASET:
+    if "inria" in DATASET:
         IMG_SIZE = 224
     elif "spacenet" in DATASET:
+        IMG_SIZE = 224
+    elif "whu_buildings" in DATASET:
+        IMG_SIZE = 224
+    elif "mass_roads" in DATASET:
         IMG_SIZE = 224
     INPUT_SIZE = 224
     PATCH_SIZE = 8
@@ -39,9 +56,7 @@ class CFG:
     perm_loss_weight = 10.0
     SHUFFLE_TOKENS = False  # order gt vertex tokens randomly every time
 
-    BATCH_SIZE = 24
-    if "crowdai" in DATASET:
-        BATCH_SIZE = 18 # batch size per gpu; effective batch size = BATCH_SIZE * NUM_GPUs
+    BATCH_SIZE = 24  # batch size per gpu; effective batch size = BATCH_SIZE * NUM_GPUs
     START_EPOCH = 0
     NUM_EPOCHS = 500
     MILESTONE = 0
@@ -59,8 +74,8 @@ class CFG:
     generation_steps = (N_VERTICES * 2) + 1  # sequence length during prediction. Should not be more than max_len
     run_eval = False
 
-    EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}__{NUM_EPOCHS}epochs"
-    # EXPERIMENT_NAME = f"CYENS_CLUSTER_train_Pix2Poly_AUGSRUNS_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
+    # EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}__{NUM_EPOCHS}epochs"
+    EXPERIMENT_NAME = f"train_Pix2Poly_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
 
     if "debug" in EXPERIMENT_NAME:
         BATCH_SIZE = 10
@@ -74,3 +89,4 @@ class CFG:
         CHECKPOINT_PATH = f"runs/{EXPERIMENT_NAME}/logs/checkpoints/latest.pth"  # full path to checkpoint to be loaded if LOAD_MODEL=True
     else:
         CHECKPOINT_PATH = ""
+

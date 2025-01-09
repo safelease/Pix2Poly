@@ -80,3 +80,4 @@ class Tokenizer:
             coords[:, 1] = coords[:, 1] * self.height
 
         return coords
+

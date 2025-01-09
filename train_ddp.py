@@ -18,7 +18,6 @@ from utils import (
 )
 from ddp_utils import (
     get_inria_loaders,
-    get_crowdai_loaders,
     get_spacenet_loaders,
     get_whu_buildings_loaders,
     get_mass_roads_loaders,
@@ -119,21 +118,6 @@ def main():
 
     if "inria" in CFG.DATASET:
         train_loader, val_loader, _ = get_inria_loaders(
-            CFG.TRAIN_DATASET_DIR,
-            CFG.VAL_DATASET_DIR,
-            CFG.TEST_IMAGES_DIR,
-            tokenizer,
-            CFG.MAX_LEN,
-            tokenizer.PAD_code,
-            CFG.SHUFFLE_TOKENS,
-            CFG.BATCH_SIZE,
-            train_transforms,
-            valid_transforms,
-            CFG.NUM_WORKERS,
-            CFG.PIN_MEMORY,
-        )
-    elif "crowdai" in CFG.DATASET:
-        train_loader, val_loader, _ = get_crowdai_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
             CFG.TEST_IMAGES_DIR,
@@ -258,3 +242,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
