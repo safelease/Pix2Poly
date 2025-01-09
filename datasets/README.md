@@ -88,28 +88,24 @@ python whu_buildings_to_coco.py
 ./download_mass_roads_dataset.sh
 ```
 2. Download and extract the roads vector shapefile for the dataset [here](https://www.cs.toronto.edu/~vmnih/data/mass_roads/massachusetts_roads_shape.zip). Use QGIS or any preferred tool to convert the SHP file to a geojson.
-3. From this vector roads geojson, generate vector annotations in the image coordinate space for each image in the dataset by clipping the geojson to the corresponding raster extents:
+3. From this vector roads geojson, generate vector annotations for each tile in the dataset by clipping the geojson to the corresponding raster extents:
 ```shell
 # using gdal_env
 python mass_roads_clip_shapefile.py
-python mass_roads_world_to_pixel_coords.py
 ```
 4. This results in the following directory structure containing the 1500x1500 tiles of the Massachusetts Roads Dataset:
 ```
 data/mass_roads_1500/
 ├── test/
 │   ├── map/
-│   ├── pixel_geojson/
 │   ├── sat/
 │   └── shape/
 ├── train/
 │   ├── map/
-│   ├── pixel_geojson/
 │   ├── sat/
 │   └── shape/
 └── valid/
     ├── map/
-    ├── pixel_geojson/
     ├── sat/
     └── shape/
 ```
@@ -122,23 +118,24 @@ python mass_roads_tiles_to_patches.py
 ```shell
 # using gdal_env
 python mass_roads_clip_tile_vectors.py
+python mass_roads_world_to_pixel_coords.py
 ```
 7. This results in the processed 224x224 patches of the Massachusetts Roads Dataset to be used for training Pix2Poly in the following directory structure:
 ```
 data/mass_roads_224/
 ├── test/
 │   ├── map/
-│   ├── pixel_geojson/
+│   ├── pixel_annotations/
 │   ├── sat/
 │   └── shape/
 ├── train/
 │   ├── map/
-│   ├── pixel_geojson/
+│   ├── pixel_annotations/
 │   ├── sat/
 │   └── shape/
 └── valid/
     ├── map/
-    ├── pixel_geojson/
+    ├── pixel_annotations/
     ├── sat/
     └── shape/
 ```
