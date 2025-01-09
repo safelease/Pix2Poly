@@ -15,6 +15,7 @@ data/inria_raw/
 3. Set path to raw INRIA train tiles and gts in L255 & L256 in `inria_to_coco.py`
 4. Run the following command to prepare the INRIA dataset's train and validation splits in MS COCO format. The first 5 tiles of each city are kept as validation split as per the official recommendation.
 ```shell
+# with pix2poly_env
 python inria_to_coco.py
 ```
 ---
@@ -36,15 +37,18 @@ data/AOI_2_Vegas_Train/
 ```
 3. Convert the pansharpened RGB image tiles from 16-bit to 8-bit using the following command:
 ```shell
+# with gdal_env
 python spacenet_convert_16bit_to_8bit.py
 ```
 4. Convert geojson annotations from world space coordinates to pixel space coordinates using the following command:
 ```shell
+# with gdal_env
 python spacenet_world_to_pixel_coords.py
 ```
 5. Set path to raw SpaceNet dataset's tiles and gts in L202 & L203 in `spacenet_to_coco.py`
 6. Run the following command to prepare the SpaceNet dataset's train and validation splits in MS COCO format. The first 15% tiles kept as validation split.
 ```shell
+# with pix2poly_env
 python spacenet_to_coco.py
 ```
 ---
@@ -54,9 +58,9 @@ python spacenet_to_coco.py
 
 
 1. Download the 0.2 meter split of the [WHU Buildings Aerial Imagery Dataset](http://gpcv.whu.edu.cn/data/building_dataset.html).
-2. Extract and place the aerial image tiles (512x512) in the following directory structure:
+2. Extract and place the aerial image tiles (512x512) in the `data` folder in the following directory structure:
 ```
-WHU_aerial_0.2/
+data/WHU_aerial_0.2/
 ├── test/
 │   ├── image/
 │   └── label/
@@ -117,7 +121,7 @@ python mass_roads_clip_tile_vectors.py
 ```
 7. This results in the processed 224x224 patches of the Massachusetts Roads Dataset to be used for training Pix2Poly in the following directory structure:
 ```
-mass_roads_224/
+data/mass_roads_224/
 ├── test/
 │   ├── map/
 │   ├── pixel_geojson/
