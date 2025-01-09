@@ -13,8 +13,8 @@ def convert_16bit_to_8bit(in_path, out_path, out_format='GTiff'):
 
 
 def main():
-    src_dir = f"RGB-PanSharpen/"
-    dest_dir = f"RGB_8bit/train/images"
+    src_dir = f"../data/AOI_2_Vegas_Train/RGB-PanSharpen/"
+    dest_dir = f"../data/AOI_2_Vegas_Train/RGB_8bit/train/images"
     os.makedirs(dest_dir, exist_ok=True)
 
     src_ims = os.listdir(src_dir)
