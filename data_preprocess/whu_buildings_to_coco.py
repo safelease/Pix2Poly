@@ -258,20 +258,21 @@ def lt_crop(im, gt, crop_size):
 
 if __name__ == '__main__':
     split = "train"
-    save_out_images = False
-    save_out_polygons = False
+    save_out_images = True
+    save_out_polygons = True
     input_image_path = f'./data/whu_buildings_224/{split}/image/'
     input_gt_path = f'./data/whu_buildings_224/{split}/label/'
 
     save_path = f'./data/whu_buildings_224/{split}/'
-    os.makedirs(os.path.join(save_path, "polygons"), exist_ok=True)
-
+    os.makedirs(os.path.join(save_path), exist_ok=True)
 
     if save_out_images:
         output_im_train = os.path.join(save_path, 'images')
-        if not os.path.exists(output_im_train):
-            os.makedirs(output_im_train)
+        os.makedirs(output_im_train, exist_ok=True)
 
+    if save_out_polygons:
+        output_poly_train = os.path.join(save_path, 'polygons')
+        os.makedirs(output_poly_train, exist_ok=True)
 
     patch_width = 224
     patch_height = 224
