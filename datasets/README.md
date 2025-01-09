@@ -115,10 +115,12 @@ data/mass_roads_1500/
 ```
 5. Split the 1500x1500 tiles into 224x224 overlapping patches with the following command:
 ```shell
+# using gdal_env
 python mass_roads_tiles_to_patches.py
 ```
 6. Generate vector annotation files for the patches as follows:
 ```shell
+# using gdal_env
 python mass_roads_clip_tile_vectors.py
 ```
 7. This results in the processed 224x224 patches of the Massachusetts Roads Dataset to be used for training Pix2Poly in the following directory structure:
