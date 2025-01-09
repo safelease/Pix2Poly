@@ -8,11 +8,12 @@ from osgeo import gdal  # use gdal env for this script.
 def main():
     ## VEGAS SUBSET
     # NOTE: Set path to spacenet dataset images and geojson annotations here.
-    spacenet_dataset_dir = f"./Datasets/SpaceNet_v2_Building_detection/SN2_dataset"
-    geoimages_dir = f"./Datasets/SpaceNet_v2_Building_detection/SN2_dataset/RGB_8bit/train/Vegas"
-    shapefiles_dir = f"./Datasets/SpaceNet_v2_Building_detection/SN2_dataset/annotations/Vegas/geojson/buildings"
+    spacenet_dataset_root = f"../data/AOI_2_Vegas_Train/"
+    geoimages_dir = os.path.join(spacenet_dataset_root, 'RGB_8bit', 'train', 'images')
+    shapefiles_dir = os.path.join(spacenet_dataset_root, 'geojson', 'buildings')
 
-    save_shapefiles_dir = f"./Datasets/SpaceNet_v2_Building_detection/SN2_dataset/annotations/Vegas/pixel_geojson"
+    save_shapefiles_dir = os.path.join(spacenet_dataset_root, 'pixel_geojson')
+    os.makedirs(save_shapefiles_dir, exist_ok=True)
 
     geoimages = os.listdir(geoimages_dir)
     shapefiles = os.listdir(shapefiles_dir)
