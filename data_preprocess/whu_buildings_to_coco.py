@@ -20,18 +20,6 @@ import glob
 import math
 import shapely
 
-def polygon2hbb(poly):
-    """
-    Get horizontal bounding box (match COCO)
-    """
-    p_x = poly[:, 0]
-    p_y = poly[:, 1]
-    hbb_x = np.min(p_x)
-    hbb_y = np.min(p_y)
-    hbb_w = np.around(np.max(p_x) - hbb_x, decimals=2)
-    hbb_h = np.around(np.max(p_y) - hbb_y, decimals=2)
-    hbox = [hbb_x, hbb_y, hbb_w, hbb_h]
-    return [float(i) for i in hbox]
 
 def clip_by_bound(poly, im_h, im_w):
     """
@@ -42,6 +30,7 @@ def clip_by_bound(poly, im_h, im_w):
     p_x = np.clip(p_x, 0.0, im_w-1)
     p_y = np.clip(p_y, 0.0, im_h-1)
     return np.concatenate((p_x[:, np.newaxis], p_y[:, np.newaxis]), axis=1)
+
 
 def crop2patch(im_p, p_h, p_w, p_overlap):
     """
@@ -57,32 +46,6 @@ def crop2patch(im_p, p_h, p_w, p_overlap):
     patch_list = [[i, j, p_w, p_h] for i, j in zip(X.flatten(), Y.flatten())]
     return patch_list
 
-def polygon_in_bounding_box(polygon, bounding_box):
-    """
-    Returns True if all vertices of polygons are inside bounding_box
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    result = np.all(
-        np.logical_and(
-            np.logical_and(bounding_box[0] <= polygon[:, 0], polygon[:, 0] <= bounding_box[0] + bounding_box[2]),
-            np.logical_and(bounding_box[1] <= polygon[:, 1], polygon[:, 1] <= bounding_box[1] + bounding_box[3])
-        )
-    )
-    return result
-
-def transform_poly_to_bounding_box(polygon, bounding_box):
-    """
-    Transform the original coordinates of polygon to bbox
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    transformed_polygon = polygon.copy()
-    transformed_polygon[:, 0] -= bounding_box[0]
-    transformed_polygon[:, 1] -= bounding_box[1]
-    return transformed_polygon
 
 def bmask_to_poly(b_im, simplify_ind, tolerance=1.8, ):
     """
@@ -143,6 +106,7 @@ def bmask_to_poly(b_im, simplify_ind, tolerance=1.8, ):
             # in case that after "simplify", one polygon turn to multiply polygons
             # (pixels in polygon) are not connected
     return polygons
+
 
 def rotate_image(image, angle):
     """
@@ -212,6 +176,7 @@ def rotate_image(image, angle):
 
     return result
 
+
 def largest_rotated_rect(w, h, angle):
     """
     Given a rectangle of size wxh that has been rotated by 'angle' (in
@@ -247,6 +212,7 @@ def largest_rotated_rect(w, h, angle):
         bb_h - 2 * y
     )
 
+
 def crop_around_center(image, width, height):
     """
     Given a NumPy / OpenCV 2 image, crops it to the given width and height,
@@ -269,6 +235,7 @@ def crop_around_center(image, width, height):
 
     return image[y1:y2, x1:x2]
 
+
 def rotate_crop(im, gt, crop_size, angle):
     h, w = im.shape[0:2]
     im_rotated = rotate_image(im, angle)
@@ -282,15 +249,11 @@ def rotate_crop(im, gt, crop_size, angle):
         gt_cropped = crop_around_center(gt, crop_size, crop_size)
     return im_cropped, gt_cropped
 
+
 def lt_crop(im, gt, crop_size):
     im_cropped = im[0:crop_size, 0:crop_size, :]
     gt_cropped = gt[0:crop_size, 0:crop_size]
     return im_cropped, gt_cropped
-
-def affine_transform(pt, t):
-    new_pt = np.array([pt[0], pt[1], 1.], dtype=np.float32).T
-    new_pt = np.dot(t, new_pt)
-    return new_pt[:2]
 
 
 if __name__ == '__main__':
