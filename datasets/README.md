@@ -71,9 +71,10 @@ data/WHU_aerial_0.2/
     ├── image/
     └── label/
 ```
-3. Set path to raw WHU Buildings tiles and gts (512x512) in L300 & L301 in `whu_buildings_to_coco.py`
+3. Set path to raw WHU Buildings tiles and gts (512x512) in L263 & L264 in `whu_buildings_to_coco.py`
 4. Run the following command to prepare the WHU Buildings dataset's train, validation and test splits in MS COCO format.
 ```shell
+# with pix2poly_env
 python whu_buildings_to_coco.py
 ```
 ---
