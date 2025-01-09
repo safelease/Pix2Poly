@@ -6,11 +6,14 @@ from osgeo import gdal  # use gdal env for this script.
 
 def main():
     split = "train"  # "train" or "valid" or "test"
-    data_root = f"../data/mass_roads_1500"
-    geoimages_dir = os.path.join(data_root, split, "sat")
+    # data_root = f"../data/mass_roads_1500"
+    data_root = f"../data/mass_roads_224"
+    # geoimages_dir = os.path.join(data_root, split, "sat")
+    geoimages_dir = os.path.join(data_root, split, "images")
+    # shapefiles_dir = os.path.join(data_root, split, "shape")
     shapefiles_dir = os.path.join(data_root, split, "shape")
 
-    save_shapefiles_dir = os.path.join(data_root, split, "pixel_geojson")
+    save_shapefiles_dir = os.path.join(data_root, split, "pixel_annotations")
     os.makedirs(save_shapefiles_dir, exist_ok=True)
 
     geoimages = os.listdir(geoimages_dir)
@@ -20,9 +23,10 @@ def main():
         geo_im = geoimages[i]
         # im_desc = geo_im.split('_')[-1].split('.')[0]
         im_desc = geo_im.split('.')[0]
-        shp = [sh for sh in shapefiles if f"{im_desc}.geojson" in sh]
-        assert len(shp) == 1
-        shp = shp[0]
+        # shp = [sh for sh in shapefiles if f"{im_desc}.geojson" in sh]
+        # assert len(shp) == 1
+        # shp = shp[0]
+        shp = f"{im_desc}.geojson"
         # shp = shapefiles[0]
 
         driver = gdal.GetDriverByName('GTiff')
@@ -62,8 +66,8 @@ def main():
                         col = col if col < cols else cols
                         row = (yOrigin - point[1]) / pixelHeight
                         row = row if row < rows else rows
-                        # 'row' has negative sign to be compatible with qgis visualization. Must be removed for compatibility in image space.
-                        coords_list.append([col, -row])
+                        # 'row' has negative sign to be compatible with qgis visualization. Must not be used for compatibility in image space.
+                        # coords_list.append([col, -row])
                     out_feat['geometry']['coordinates'].append(coords_list)
                     pixel_shp['features'].append(out_feat)
             else:
@@ -75,7 +79,7 @@ def main():
                     col = col if col < cols else cols
                     row = (yOrigin - point[1]) / pixelHeight
                     row = row if row < rows else rows
-                    # 'row' has negative sign to be compatible with qgis visualization. Must be removed for compatibility in image space.
+                    # 'row' has negative sign to be compatible with qgis visualization. Must not be used for compatibility in image space.
                     # coords_list.append([col, -row])
                     coords_list.append([col, row])
                 out_feat['geometry']['coordinates'].append(coords_list)
