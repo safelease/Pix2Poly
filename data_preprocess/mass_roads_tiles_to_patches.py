@@ -6,11 +6,15 @@ from tqdm import tqdm
 
 
 def main():
-    split = 'valid'
-    images_dir = f"data/mass_roads/{split}/map"
+    split = 'train'
+    data_root = f"../data/mass_roads_1500"
+    images_dir = os.path.join(data_root, split, "sat")
+    masks_dir = os.path.join(data_root, split, "map")
 
-    out_dir = f"data/mass_roads/gdal_retile/{split}/mask"
-    os.makedirs(out_dir, exist_ok=True)
+    out_imgs_dir = f"../data/mass_roads_224/{split}/images"
+    out_mask_dir = f"../data/mass_roads_224/{split}/mask"
+    os.makedirs(out_imgs_dir, exist_ok=True)
+    os.makedirs(out_mask_dir, exist_ok=True)
 
     patch_size = 224
     ph = pw = patch_size
@@ -19,7 +23,13 @@ def main():
     images = os.listdir(images_dir)
     for img in tqdm(images):
         in_path = os.path.join(images_dir, img)
-        cmd = f"gdal_retile.py -targetDir {out_dir} -ps {ph} {pw} -overlap {overlap} {in_path}"
+        cmd = f"gdal_retile.py -targetDir {out_imgs_dir} -ps {ph} {pw} -overlap {overlap} {in_path}"
+        subprocess.call(cmd, shell=True)
+
+    masks = os.listdir(masks_dir)
+    for mask in tqdm(masks):
+        in_path = os.path.join(masks_dir, mask)
+        cmd = f"gdal_retile.py -targetDir {out_mask_dir} -ps {ph} {pw} -overlap {overlap} {in_path}"
         subprocess.call(cmd, shell=True)
 
 
