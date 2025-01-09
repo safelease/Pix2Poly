@@ -31,12 +31,13 @@ def clip_shapefile(paths_dict):
 
 
 def main():
-    split = "train"
-    vector_dir = f"data/mass_roads/{split}/shape"
-    save_dir = f'data/mass_roads/gdal_retile/{split}/shape'
+    split = "train"  # "train" or "valid" or "test"
+    data_root = f"../data/mass_roads_1500"
+    vector_dir = os.path.join(data_root, split, "shape")
+    save_dir = f'../data/mass_roads_224/{split}/shape'
     os.makedirs(save_dir, exist_ok=True)
 
-    rasters_dir = f'data/mass_roads/gdal_retile/{split}/images/'
+    rasters_dir = f'../data/mass_roads_224/{split}/images/'
     rasters = os.listdir(rasters_dir)
 
     param_inputs = []
@@ -57,7 +58,7 @@ def main():
 
     # clip_shapefile(raster_path, vector_path, save_path)
     with Pool() as p:
-        r = list(tqdm(p.imap(clip_shapefile, param_inputs), total=len(param_inputs)))
+        _ = list(tqdm(p.imap(clip_shapefile, param_inputs), total=len(param_inputs)))
 
 if __name__ == "__main__":
     main()
