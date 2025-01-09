@@ -3,13 +3,11 @@
 #
 # The first 15% images are kept as validation set
 
-from pycocotools.coco import COCO
 import os
 import numpy as np
 from skimage import io
 import json
 from tqdm import tqdm
-from itertools import groupby
 from shapely.geometry import Polygon, mapping
 from shapely.ops import transform as poly_transform
 from shapely.ops import unary_union
@@ -17,23 +15,9 @@ from shapely.geometry import box
 from skimage.measure import label as ski_label
 from skimage.measure import regionprops
 import cv2
-import glob
 import math
 import shapely
 
-
-def polygon2hbb(poly):
-    """
-    Get horizontal bounding box (match COCO)
-    """
-    p_x = poly[:, 0]
-    p_y = poly[:, 1]
-    hbb_x = np.min(p_x)
-    hbb_y = np.min(p_y)
-    hbb_w = np.around(np.max(p_x) - hbb_x, decimals=2)
-    hbb_h = np.around(np.max(p_y) - hbb_y, decimals=2)
-    hbox = [hbb_x, hbb_y, hbb_w, hbb_h]
-    return [float(i) for i in hbox]
 
 def clip_by_bound(poly, im_h, im_w):
     """
@@ -44,6 +28,7 @@ def clip_by_bound(poly, im_h, im_w):
     p_x = np.clip(p_x, 0.0, im_w-1)
     p_y = np.clip(p_y, 0.0, im_h-1)
     return np.concatenate((p_x[:, np.newaxis], p_y[:, np.newaxis]), axis=1)
+
 
 def crop2patch(im_p, p_h, p_w, p_overlap):
     """
@@ -59,92 +44,6 @@ def crop2patch(im_p, p_h, p_w, p_overlap):
     patch_list = [[i, j, p_w, p_h] for i, j in zip(X.flatten(), Y.flatten())]
     return patch_list
 
-def polygon_in_bounding_box(polygon, bounding_box):
-    """
-    Returns True if all vertices of polygons are inside bounding_box
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    result = np.all(
-        np.logical_and(
-            np.logical_and(bounding_box[0] <= polygon[:, 0], polygon[:, 0] <= bounding_box[0] + bounding_box[2]),
-            np.logical_and(bounding_box[1] <= polygon[:, 1], polygon[:, 1] <= bounding_box[1] + bounding_box[3])
-        )
-    )
-    return result
-
-def transform_poly_to_bounding_box(polygon, bounding_box):
-    """
-    Transform the original coordinates of polygon to bbox
-    :param polygon: [N, 2]
-    :param bounding_box: [row_min, col_min, row_max, col_max]
-    :return:
-    """
-    transformed_polygon = polygon.copy()
-    transformed_polygon[:, 0] -= bounding_box[0]
-    transformed_polygon[:, 1] -= bounding_box[1]
-    return transformed_polygon
-
-def bmask_to_poly(b_im, simplify_ind, tolerance=1.8, ):
-    """
-    Convert binary mask to polygons
-    """
-    polygons = []
-    # pad mask to close contours of shapes which start and end at an edge
-    try:
-        label_img = ski_label(b_im > 0)
-    except:
-        pass
-        # print('error')
-    props = regionprops(label_img)
-    for prop in props:
-        prop_mask = np.zeros_like(b_im)
-        prop_mask[prop.coords[:, 0], prop.coords[:, 1]] = 1
-        padded_binary_mask = np.pad(prop_mask, pad_width=1, mode='constant', constant_values=0)
-        contours, hierarchy = cv2.findContours(padded_binary_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        if len(contours) > 1:
-            intp = []
-            for contour, h in zip(contours, hierarchy[0]):
-                contour = np.array([c.reshape(-1).tolist() for c in contour])
-                # subtract pad
-                contour -= 1
-                contour = clip_by_bound(contour, b_im.shape[0], b_im.shape[1])
-                if len(contour) > 3:
-                    closed_c = np.concatenate((contour, contour[0].reshape(-1, 2)))
-                    if h[3] < 0:
-                        extp = [tuple(i) for i in closed_c]
-                    else:
-                        if cv2.contourArea(closed_c.astype(int)) > 10:
-                            intp.append([tuple(i) for i in closed_c])
-            poly = Polygon(extp, intp)
-            if simplify_ind:
-                poly = poly.simplify(tolerance=tolerance, preserve_topology=False)
-                if isinstance(poly, Polygon):
-                    polygons.append(poly)
-                else:
-                    for idx in range(len(poly.geoms)):
-                        polygons.append(poly.geoms[idx])
-        elif len(contours) == 1:
-            contour = np.array([c.reshape(-1).tolist() for c in contours[0]])
-            contour -= 1
-            contour = clip_by_bound(contour, b_im.shape[0], b_im.shape[1])
-            if len(contour) > 3:
-                closed_c = np.concatenate((contour, contour[0].reshape(-1, 2)))
-                poly = Polygon(closed_c)
-
-            # simply polygon vertex
-                if simplify_ind:
-                    poly = poly.simplify(tolerance=tolerance, preserve_topology=False)
-                if isinstance(poly, Polygon):
-                    polygons.append(poly)
-                else:
-                    for idx in range(len(poly.geoms)):
-                        polygons.append(poly.geoms[idx])
-            # print(np.array(poly.exterior.coords).ravel().tolist())
-            # in case that after "simplify", one polygon turn to multiply polygons
-            # (pixels in polygon) are not connected
-    return polygons
 
 def rotate_image(image, angle):
     """
@@ -214,6 +113,7 @@ def rotate_image(image, angle):
 
     return result
 
+
 def largest_rotated_rect(w, h, angle):
     """
     Given a rectangle of size wxh that has been rotated by 'angle' (in
@@ -249,6 +149,7 @@ def largest_rotated_rect(w, h, angle):
         bb_h - 2 * y
     )
 
+
 def crop_around_center(image, width, height):
     """
     Given a NumPy / OpenCV 2 image, crops it to the given width and height,
@@ -271,6 +172,7 @@ def crop_around_center(image, width, height):
 
     return image[y1:y2, x1:x2]
 
+
 def rotate_crop(im, gt, crop_size, angle):
     h, w = im.shape[0:2]
     im_rotated = rotate_image(im, angle)
@@ -284,15 +186,12 @@ def rotate_crop(im, gt, crop_size, angle):
         gt_cropped = crop_around_center(gt, crop_size, crop_size)
     return im_cropped, gt_cropped
 
+
 def lt_crop(im, gt, crop_size):
     im_cropped = im[0:crop_size, 0:crop_size, :]
     gt_cropped = gt[0:crop_size, 0:crop_size]
     return im_cropped, gt_cropped
 
-def affine_transform(pt, t):
-    new_pt = np.array([pt[0], pt[1], 1.], dtype=np.float32).T
-    new_pt = np.dot(t, new_pt)
-    return new_pt[:2]
 
 # for polygon vflip
 def reflection():
@@ -300,10 +199,10 @@ def reflection():
 
 
 if __name__ == '__main__':
-    input_image_path = './Datasets/SpaceNet_v2_Building_detection/SN2_dataset/RGB_8bit/train/Vegas'
-    input_annos_path = './Datasets/SpaceNet_v2_Building_detection/SN2_dataset/annotations/Vegas/pixel_geojson'
+    input_image_path = f"../data/AOI_2_Vegas_Train/RGB_8bit/train/images"
+    input_annos_path = f"../data/AOI_2_Vegas_Train/pixel_geojson"
 
-    save_path = './SpaceNet_v2_Building_detection/SN2_dataset/coco_format/Vegas'
+    save_path = f"../data/spacenet_coco/"
 
     all_images = os.listdir(input_image_path)
     val_count = int(0.15 * len(all_images))
@@ -357,7 +256,7 @@ if __name__ == '__main__':
         # read data
         # label_info = [''.join(list(g)) for k, g in groupby(label, key=lambda x: x.isdigit())]
         label_info = label.split('_')
-        
+
         label_name = label_info[-1].split('.')[0]
         im_name = [im for im in all_images if label_name+".tif" in im]
         assert len(im_name) == 1
