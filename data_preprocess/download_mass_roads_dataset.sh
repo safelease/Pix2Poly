@@ -16,4 +16,5 @@ wget -r --no-parent https://www.cs.toronto.edu/~vmnih/data/mass_roads/test/sat/
 wget -r --no-parent https://www.cs.toronto.edu/~vmnih/data/mass_roads/test/map/
 
 mv www.cs.toronto.edu/\~vmnih/data/mass_roads .
+mv mass_roads mass_roads_1500
 rm -r www.cs.toronto.edu
