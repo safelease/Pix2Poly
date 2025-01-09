@@ -3,16 +3,16 @@
 ## INRIA Dataset
 
 1. Download the [INRIA Aerial Image Labeling Dataset](https://project.inria.fr/aerialimagelabeling/).
-2. Extract and place the aerial image tiles in the following directory structure:
+2. Extract and place the aerial image tiles in the `data` directory as follows:
 ```
-AerialImageDataset/
+data/inria_raw/
 ├── test/
 │   └── images/
 └── train/
     ├── gt/
     └── images/
 ```
-3. Set path to raw INRIA train tiles and gts in L299 & L300 in `inria_to_coco.py`
+3. Set path to raw INRIA train tiles and gts in L255 & L256 in `inria_to_coco.py`
 4. Run the following command to prepare the INRIA dataset's train and validation splits in MS COCO format. The first 5 tiles of each city are kept as validation split as per the official recommendation.
 ```shell
 python inria_to_coco.py
@@ -25,9 +25,9 @@ python inria_to_coco.py
 NOTE: We only use the Vegas subset for all our experiments in the paper.
 
 1. Download the [Spacenet 2 Building Detection v2 Dataset](https://spacenet.ai/spacenet-buildings-dataset-v2/).
-2. Extract and place the satellite image tiles for the Vegas subset in the following directory structure:
+2. Extract and place the satellite image tiles for the Vegas subset in the `data` folder in the following directory structure:
 ```
-AOI_2_Vegas_Train/
+data/AOI_2_Vegas_Train/
 └── geojson/
     └── buildings/
 └── RGB-PanSharpen/
@@ -42,7 +42,7 @@ python spacenet_convert_16bit_to_8bit.py
 ```shell
 python spacenet_world_to_pixel_coords.py
 ```
-5. Set path to raw SpaceNet dataset's tiles and gts in L303 & L304 in `spacenet_to_coco.py`
+5. Set path to raw SpaceNet dataset's tiles and gts in L202 & L203 in `spacenet_to_coco.py`
 6. Run the following command to prepare the SpaceNet dataset's train and validation splits in MS COCO format. The first 15% tiles kept as validation split.
 ```shell
 python spacenet_to_coco.py
