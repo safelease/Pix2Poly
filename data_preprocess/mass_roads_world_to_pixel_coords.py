@@ -5,10 +5,12 @@ from osgeo import gdal  # use gdal env for this script.
 
 
 def main():
-    geoimages_dir = "train/sat/"
-    shapefiles_dir = "train/shape/"
+    split = "train"  # "train" or "valid" or "test"
+    data_root = f"../data/mass_roads_1500"
+    geoimages_dir = os.path.join(data_root, split, "sat")
+    shapefiles_dir = os.path.join(data_root, split, "shape")
 
-    save_shapefiles_dir = "train/pixel_geojson/"
+    save_shapefiles_dir = os.path.join(data_root, split, "pixel_geojson")
     os.makedirs(save_shapefiles_dir, exist_ok=True)
 
     geoimages = os.listdir(geoimages_dir)
