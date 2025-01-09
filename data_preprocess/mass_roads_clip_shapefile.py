@@ -26,11 +26,13 @@ def clip_shapefile(raster_path, vector_path, save_path):
 
 
 def main():
-    vector_path = "massachusetts_roads_shape.geojson"
-    save_dir = 'train/shape'
+    split = "train"  # "train" or "valid" or "test"
+    data_root = "../data/mass_roads_1500"
+    vector_path = os.path.join(data_root, "massachusetts_roads_shape.geojson")
+    save_dir = os.path.join(data_root, split, "shape")
     os.makedirs(save_dir, exist_ok=True)
 
-    rasters_dir = 'train/sat/'
+    rasters_dir = os.path.join(data_root, split, "sat")
     rasters = os.listdir(rasters_dir)
 
     for raster in tqdm(rasters):
