@@ -90,12 +90,13 @@ python whu_buildings_to_coco.py
 2. Download and extract the roads vector shapefile for the dataset [here](https://www.cs.toronto.edu/~vmnih/data/mass_roads/massachusetts_roads_shape.zip). Use QGIS or any preferred tool to convert the SHP file to a geojson.
 3. From this vector roads geojson, generate vector annotations in the image coordinate space for each image in the dataset by clipping the geojson to the corresponding raster extents:
 ```shell
+# using gdal_env
 python mass_roads_clip_shapefile.py
 python mass_roads_world_to_pixel_coords.py
 ```
 4. This results in the following directory structure containing the 1500x1500 tiles of the Massachusetts Roads Dataset:
 ```
-mass_roads_1500/
+data/mass_roads_1500/
 ├── test/
 │   ├── map/
 │   ├── pixel_geojson/
