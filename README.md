@@ -73,8 +73,45 @@ torchrun --nproc_per_node=<num GPUs> train_ddp.py
 
 ## Prediction
 
-Todo:
- - [ ] Inference scripts are coming soon...
+### (i) INRIA Dataset
+To generate predictions for the INRIA dataset, run the following:
+```shell
+python predict_inria_coco_val_set.py -d inria_coco_224_negAug \
+                                     -e <path_to_exp_folder> \
+                                     -c <checkpoint_name> \
+                                     -o <Name of output subdirectory>
+python postprocess_coco_parts.py  # change input and output paths in L006 to L010.
+```
+
+### (ii) Spacenet 2 Dataset
+To generate predictions for the Spacenet 2 dataset, run the following:
+```shell
+python predict_spacenet_coco_val_set.py -d spacenet_coco \
+                                        -e <path_to_exp_folder> \
+                                        -c <checkpoint_name> \
+                                        -o <Name of output subdirectory>
+python postprocess_coco_parts.py  # change input and output paths in L006 to L010.
+```
+
+### (iii) WHU Buildings Dataset
+To generate predictions for the WHU Buildings dataset, run the following:
+```shell
+python predict_whu_buildings_coco_test_set.py -d whu_buildings_224_coco \
+                                              -e <path_to_exp_folder> \
+                                              -c <checkpoint_name> \
+                                              -o <Name of output subdirectory>
+python postprocess_coco_parts.py  # change input and output paths in L006 to L010.
+```
+### (iv) Massachusetts Roads Dataset
+To generate predictions for the Massachusetts Roads dataset, run the following:
+```shell
+python predict_mass_roads_test_set.py -e <path_to_exp_folder> \
+-c <checkpoint_name> \
+-s <split> \  # 'test' or 'val'
+--img_size 224 \
+--input_size 224 \
+--batch_size 24 \  # modify according to resources
+```
 
 ## Evaluation
 
