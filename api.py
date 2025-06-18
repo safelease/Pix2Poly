@@ -8,6 +8,9 @@ import uvicorn
 from contextlib import asynccontextmanager
 import base64
 from typing import Optional
+import gdown
+import shutil
+from pathlib import Path
 
 from polygon_inference import PolygonInference
 from utils import log
@@ -17,7 +20,8 @@ API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Get API key from environment variable
-API_KEY = os.getenv("API_KEY", "")
+API_KEY = os.getenv("API_KEY")
+EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH")
 
 async def verify_api_key(
     header_key: Optional[str] = Depends(api_key_header),
@@ -55,13 +59,55 @@ async def verify_api_key(
         )
     return api_key
 
+def download_model_files(model_url: str, target_dir: str) -> str:
+    """Download model files from Google Drive to the target directory.
+    
+    Args:
+        model_url: Google Drive URL to download the model files from
+        target_dir: Directory to save the model files to
+        
+    Returns:
+        Path to the downloaded model directory
+        
+    Raises:
+        ValueError: If download fails or model files are invalid
+    """
+    try:
+        # Create target directory if it doesn't exist
+        target_path = Path(target_dir)
+        target_path.mkdir(parents=True, exist_ok=True)
+        
+        # Check if model files already exist
+        if target_path.exists() and any(target_path.iterdir()):
+            log(f"Model files already exist in {target_dir}, skipping download", "INFO")
+            return str(target_path)
+        
+        # Download the model files using gdown
+        zip_path = target_path / "runs_share.zip"
+        gdown.download(model_url, str(zip_path), quiet=False)
+        
+        # Extract the zip file
+        shutil.unpack_archive(zip_path, target_path)
+        
+        # Remove the zip file
+        zip_path.unlink()
+        
+        return str(target_path)
+        
+    except Exception as e:
+        raise ValueError(f"Failed to download model files: {str(e)}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize the predictor on startup."""
-    experiment_path = os.getenv("EXPERIMENT_PATH")
-    if not experiment_path:
-        raise ValueError("EXPERIMENT_PATH environment variable must be set")
-    init_predictor(experiment_path)
+    # Download model files to a temporary directory
+    model_dir = download_model_files(
+        "https://drive.google.com/uc?id=1oEs2n81nMAzdY4G9bdrji13pOKk6MOET",
+        "/tmp/pix2poly_model"
+    )
+    
+    # Initialize predictor with downloaded model
+    init_predictor(model_dir + "/" + EXPERIMENT_PATH)
     yield
 
 app = FastAPI(
