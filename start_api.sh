@@ -14,4 +14,4 @@ conda activate pix2poly
 
 # Start the API server
 echo "Starting API server with experiment path: $EXPERIMENT_PATH"
-uvicorn api:app --reload --port 8080 --workers 1 --limit-concurrency 1
+uvicorn api:app --reload --port 8080 --workers 1
