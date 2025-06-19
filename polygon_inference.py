@@ -1,8 +1,5 @@
 # Standard library imports
 import os
-import tempfile
-import hashlib
-from pathlib import Path
 from typing import List, Tuple, Dict, Optional, Any
 
 # Third-party imports
@@ -31,9 +28,6 @@ from models.model import (
     EncoderDecoder
 )
 
-# Cache configuration
-ENABLE_CACHE = False  # Set to False to disable caching by default
-
 class PolygonInference:
     def __init__(self, experiment_path: str, device: Optional[str] = None) -> None:
         """Initialize the polygon inference with a trained model.
@@ -47,13 +41,6 @@ class PolygonInference:
         self.model: Optional[EncoderDecoder] = None
         self.tokenizer: Optional[Tokenizer] = None
         self._initialize_model()
-        
-        # Create persistent temporary directory for caching only if caching is enabled
-        if ENABLE_CACHE:
-            self.cache_dir: Path = Path(tempfile.gettempdir()) / "pix2poly_cache"
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            self.cache_dir = None
         
     def _initialize_model(self) -> None:
         """Initialize the model and tokenizer.
@@ -103,47 +90,6 @@ class PolygonInference:
         checkpoint_files = [f for f in os.listdir(checkpoint_dir) if f.startswith('epoch_') and f.endswith('.pth')]
         latest_checkpoint = sorted(checkpoint_files)[-1]
         return latest_checkpoint
-
-    def _get_tile_hash(self, tile: np.ndarray) -> str:
-        """Generate a hash for the input tile.
-        
-        Args:
-            tile (np.ndarray): Input image tile
-            
-        Returns:
-            str: MD5 hash of the tile
-        """
-        return hashlib.md5(tile.tobytes()).hexdigest()
-
-    def _load_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Load cached result if it exists.
-        
-        Args:
-            cache_key (str): Key to look up in the cache
-            
-        Returns:
-            dict | None: Cached result if found, None otherwise
-        """
-        if not ENABLE_CACHE or self.cache_dir is None:
-            return None
-            
-        cache_path = self.cache_dir / f"{cache_key}.npy"
-        if cache_path.exists():
-            return np.load(cache_path, allow_pickle=True).item()
-        return None
-
-    def _save_to_cache(self, cache_key: str, result: Dict[str, Any]) -> None:
-        """Save result to cache.
-        
-        Args:
-            cache_key (str): Key to store in the cache
-            result (dict): Result to cache
-        """
-        if not ENABLE_CACHE or self.cache_dir is None:
-            return
-            
-        cache_path = self.cache_dir / f"{cache_key}.npy"
-        np.save(cache_path, result, allow_pickle=True)
 
     def _process_tiles_batch(self, tiles: List[np.ndarray]) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
@@ -205,10 +151,6 @@ class PolygonInference:
                 result = {
                     'polygons': valid_polygons
                 }
-                
-                # Cache the result
-                cache_key = self._get_tile_hash(tiles[j])
-                self._save_to_cache(cache_key, result)
                 
                 results.append(result)
         
@@ -305,7 +247,6 @@ class PolygonInference:
         )
         
         tiles: List[np.ndarray] = []
-        tiles_to_process: List[np.ndarray] = []
         
         for bbox in bboxes:
             x1, y1, x2, y2 = bbox
@@ -317,18 +258,8 @@ class PolygonInference:
         # Process tiles in batches
         all_results: List[Dict[str, List[np.ndarray]]] = []
         
-        # First check cache for all tiles
-        for tile in tiles:
-            cache_key = self._get_tile_hash(tile)
-            cached_result = self._load_from_cache(cache_key)
-            if cached_result is not None:
-                all_results.append(cached_result)
-            else:
-                tiles_to_process.append(tile)
-        
-        # Process remaining tiles in batches
-        for i in range(0, len(tiles_to_process), CFG.PREDICTION_BATCH_SIZE):
-            batch_tiles = tiles_to_process[i:i + CFG.PREDICTION_BATCH_SIZE]
+        for i in range(0, len(tiles), CFG.PREDICTION_BATCH_SIZE):
+            batch_tiles = tiles[i:i + CFG.PREDICTION_BATCH_SIZE]
             batch_results = self._process_tiles_batch(batch_tiles)
             all_results.extend(batch_results)
 
