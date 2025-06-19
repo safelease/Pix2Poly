@@ -12,8 +12,6 @@ fi
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate pix2poly
 
-./cuda_compatibility.sh
-
 # Start the API server
 echo "Starting API server with experiment path: $EXPERIMENT_PATH"
 uvicorn api:app --reload --port 8080 --workers 1 --limit-concurrency 1
