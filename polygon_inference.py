@@ -31,6 +31,9 @@ from models.model import (
     EncoderDecoder
 )
 
+# Cache configuration
+ENABLE_CACHE = False  # Set to False to disable caching by default
+
 class PolygonInference:
     def __init__(self, experiment_path: str, device: Optional[str] = None) -> None:
         """Initialize the polygon inference with a trained model.
@@ -45,9 +48,12 @@ class PolygonInference:
         self.tokenizer: Optional[Tokenizer] = None
         self._initialize_model()
         
-        # Create persistent temporary directory for caching
-        self.cache_dir: Path = Path(tempfile.gettempdir()) / "pix2poly_cache"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        # Create persistent temporary directory for caching only if caching is enabled
+        if ENABLE_CACHE:
+            self.cache_dir: Path = Path(tempfile.gettempdir()) / "pix2poly_cache"
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.cache_dir = None
         
     def _initialize_model(self) -> None:
         """Initialize the model and tokenizer.
@@ -118,6 +124,9 @@ class PolygonInference:
         Returns:
             dict | None: Cached result if found, None otherwise
         """
+        if not ENABLE_CACHE or self.cache_dir is None:
+            return None
+            
         cache_path = self.cache_dir / f"{cache_key}.npy"
         if cache_path.exists():
             return np.load(cache_path, allow_pickle=True).item()
@@ -130,18 +139,11 @@ class PolygonInference:
             cache_key (str): Key to store in the cache
             result (dict): Result to cache
         """
+        if not ENABLE_CACHE or self.cache_dir is None:
+            return
+            
         cache_path = self.cache_dir / f"{cache_key}.npy"
         np.save(cache_path, result, allow_pickle=True)
-
-    def clear_cache(self) -> None:
-        """Clear all cached results.
-        
-        This method removes all .npy files from the cache directory.
-        """
-        if self.cache_dir.exists():
-            for cache_file in self.cache_dir.glob("*.npy"):
-                cache_file.unlink()
-            log(f"Cleared cache directory: {self.cache_dir}")
 
     def _process_tiles_batch(self, tiles: List[np.ndarray]) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
