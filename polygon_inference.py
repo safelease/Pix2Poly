@@ -133,6 +133,16 @@ class PolygonInference:
         cache_path = self.cache_dir / f"{cache_key}.npy"
         np.save(cache_path, result, allow_pickle=True)
 
+    def clear_cache(self) -> None:
+        """Clear all cached results.
+        
+        This method removes all .npy files from the cache directory.
+        """
+        if self.cache_dir.exists():
+            for cache_file in self.cache_dir.glob("*.npy"):
+                cache_file.unlink()
+            log(f"Cleared cache directory: {self.cache_dir}")
+
     def _process_tiles_batch(self, tiles: List[np.ndarray]) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
         

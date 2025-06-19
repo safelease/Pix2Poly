@@ -26,7 +26,6 @@ COPY . .
 
 # Set environment variables
 ENV PYTHONPATH=/opt/program
-ENV EXPERIMENT_PATH=/opt/ml/model
 ENV OPENBLAS_NUM_THREADS=1
 
 # Activate conda environment and set the entrypoint

@@ -203,6 +203,30 @@ async def ping(api_key: Optional[str] = Depends(verify_api_key)):
         raise HTTPException(status_code=503, detail="Model not loaded")
     return {"status": "healthy"}
 
+@app.post("/clear-cache")
+async def clear_cache(api_key: Optional[str] = Depends(verify_api_key)):
+    """Clear the inference cache.
+    
+    This endpoint clears all cached results from the polygon inference cache.
+    This can be useful for freeing up disk space or ensuring fresh results.
+    
+    Returns:
+        JSON response confirming the cache has been cleared
+        
+    Raises:
+        HTTPException: 503 if the model is not loaded
+        HTTPException: 500 if there is an error clearing the cache
+    """
+    if predictor is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        predictor.clear_cache()
+        return {"message": "Cache cleared successfully"}
+    except Exception as e:
+        log(f"Error clearing cache: {str(e)}", "ERROR")
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")
+
 if __name__ == "__main__":
     # Run the API
     uvicorn.run(app, host="0.0.0.0", port=8080) 
