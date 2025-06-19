@@ -28,6 +28,5 @@ COPY . .
 ENV PYTHONPATH=/opt/program
 ENV OPENBLAS_NUM_THREADS=1
 
-# Activate conda environment and set the entrypoint
-SHELL ["/bin/bash", "-c"]
-ENTRYPOINT ["/bin/bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate pix2poly && python api.py"] 
+# Use the startup script as entrypoint
+ENTRYPOINT ["./start_api.sh"] 

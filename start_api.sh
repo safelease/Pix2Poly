@@ -3,12 +3,16 @@
 # Exit on error
 set -e
 
-# Set experiment path
-export EXPERIMENT_PATH=runs_share/Pix2Poly_inria_coco_224
+# Set experiment path only if not already set
+if [ -z "$EXPERIMENT_PATH" ]; then
+    export EXPERIMENT_PATH=runs_share/Pix2Poly_inria_coco_224
+fi
 
 # Activate conda environment
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate pix2poly
+
+./cuda_compatibility.sh
 
 # Start the API server
 echo "Starting API server with experiment path: $EXPERIMENT_PATH"

@@ -162,6 +162,8 @@ async def invoke(request: Request, file: UploadFile = None, api_key: Optional[st
         HTTPException: 401 if API key is missing (when API key is configured)
         HTTPException: 403 if API key is invalid (when API key is configured)
     """
+    log(f"Invoking image analysis")
+    
     try:
         if file:
             # Handle file upload
