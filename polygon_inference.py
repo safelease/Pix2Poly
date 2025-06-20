@@ -1,5 +1,6 @@
 # Standard library imports
 import os
+import time
 from typing import List, Tuple, Dict, Optional, Any
 
 # Third-party imports
@@ -284,11 +285,22 @@ class PolygonInference:
 
         # Process tiles in batches
         all_results: List[Dict[str, List[np.ndarray]]] = []
+        total_tiles_processed = 0
+        total_batch_time = 0.0
 
         for i in range(0, len(tiles), CFG.PREDICTION_BATCH_SIZE):
+            batch_start_time = time.time()
             batch_tiles = tiles[i : i + CFG.PREDICTION_BATCH_SIZE]
             batch_results = self._process_tiles_batch(batch_tiles)
             all_results.extend(batch_results)
+            
+            batch_time = time.time() - batch_start_time
+            total_tiles_processed += len(batch_tiles)
+            total_batch_time += batch_time
+            
+            log(f"Processed batch of {len(batch_tiles)} tiles in {batch_time:.2f}s ({batch_time/len(batch_tiles):.3f}s per tile)")
+
+        log(f"Total tiles processed: {total_tiles_processed}, Total time: {total_batch_time:.2f}s, Average time per tile: {total_batch_time/total_tiles_processed:.3f}s")
 
         merged_polygons = self._merge_polygons(all_results, bboxes)
 
