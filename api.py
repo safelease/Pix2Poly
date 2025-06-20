@@ -247,6 +247,13 @@ async def ping(api_key: Optional[str] = Depends(verify_api_key)):
     return {"status": "healthy"}
 
 
+@app.get("/clear-cache")
+async def clear_cache(api_key: Optional[str] = Depends(verify_api_key)):
+    """Clear the cache endpoint to remove all cached results."""
+    cache.clear()
+    return {"status": "success", "message": "Cache cleared successfully"}
+
+
 if __name__ == "__main__":
     # Run the API
     uvicorn.run(app, host="0.0.0.0", port=8080)
