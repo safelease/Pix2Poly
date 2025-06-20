@@ -1,5 +1,7 @@
 import os
 import json
+import hashlib
+import tempfile
 from fastapi import FastAPI, UploadFile, HTTPException, Request, Depends, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from typing import Optional
 import requests
 import shutil
 from pathlib import Path
+from diskcache import Cache
 
 from polygon_inference import PolygonInference
 from utils import log
@@ -23,6 +26,30 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 API_KEY = os.getenv("API_KEY")
 EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_224")
 MODEL_URL = os.getenv("MODEL_URL", "https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip")
+
+# Cache configuration
+CACHE_SIZE_LIMIT = int(os.getenv("CACHE_SIZE_LIMIT", 100 * 1024 * 1024))  # 100MB default
+CACHE_TTL = int(os.getenv("CACHE_TTL", 24 * 3600))  # 24 hours
+
+# Global cache instance
+cache = Cache(
+    directory=os.path.join(tempfile.gettempdir(), "pix2poly_cache"),
+    size_limit=CACHE_SIZE_LIMIT,
+    timeout=1,  # 1 second timeout for cache operations
+    disk_min_file_size=0,  # Store all items on disk
+    disk_pickle_protocol=4,  # Use protocol 4 for better compatibility
+)
+
+def get_cache_key(image_data: bytes) -> str:
+    """Generate a cache key from image data.
+    
+    Args:
+        image_data: Raw image data
+        
+    Returns:
+        SHA-256 hash of the image data as a string
+    """
+    return hashlib.sha256(image_data).hexdigest()
 
 
 async def verify_api_key(
@@ -194,6 +221,13 @@ async def invoke(
             # Handle raw image data
             image_data = body
 
+    # Generate cache key and check cache
+    cache_key = get_cache_key(image_data)
+    cached_result = cache.get(cache_key)
+    
+    if cached_result is not None:
+        return JSONResponse(content=cached_result)
+
     # Get inferences
     polygons = predictor.infer(image_data)
 
@@ -201,6 +235,9 @@ async def invoke(
     response = {
         "polygons": polygons,
     }
+
+    # Store result in cache
+    cache.set(cache_key, response, expire=CACHE_TTL)
 
     return JSONResponse(content=response)
 
