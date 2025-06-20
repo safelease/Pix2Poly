@@ -187,7 +187,11 @@ class PolygonInference:
         
         simplified_polygons: List[np.ndarray] = []
 
-        # Merging tiles may have created redundant points in the middle of a line.  We can remove them.
+        # Convert single polygon to MultiPolygon for consistent processing
+        if isinstance(merged, shapely.geometry.Polygon):
+            merged = shapely.geometry.MultiPolygon([merged])
+        
+        # Process all polygons (now guaranteed to be a MultiPolygon)
         for poly in merged.geoms:
             simplified = poly.simplify(CFG.POLYGON_SIMPLIFICATION_TOLERANCE)
             if simplified.is_valid and not simplified.is_empty:
