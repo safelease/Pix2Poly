@@ -8,7 +8,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 import base64
 from typing import Optional
-import gdown
+import requests
 import shutil
 from pathlib import Path
 
@@ -22,6 +22,7 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 # Get API key from environment variable
 API_KEY = os.getenv("API_KEY")
 EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_224")
+MODEL_URL = os.getenv("MODEL_URL", "https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip")
 
 
 async def verify_api_key(
@@ -56,10 +57,10 @@ async def verify_api_key(
 
 
 def download_model_files(model_url: str, target_dir: str) -> str:
-    """Download model files from Google Drive to the target directory.
+    """Download model files from GitHub releases to the target directory.
 
     Args:
-        model_url: Google Drive URL to download the model files from
+        model_url: GitHub releases URL to download the model files from
         target_dir: Directory to save the model files to
 
     Returns:
@@ -77,11 +78,19 @@ def download_model_files(model_url: str, target_dir: str) -> str:
         log(f"Model files already exist in {target_dir}, skipping download", "INFO")
         return str(target_path)
 
-    # Download the model files using gdown
+    # Download the model files using requests
     zip_path = target_path / "runs_share.zip"
-    gdown.download(model_url, str(zip_path), quiet=False)
+    
+    log(f"Downloading model files from {model_url}", "INFO")
+    response = requests.get(model_url, stream=True)
+    response.raise_for_status()
+    
+    with open(zip_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
 
     # Extract the zip file
+    log(f"Extracting model files to {target_dir}", "INFO")
     shutil.unpack_archive(zip_path, target_path)
 
     # Remove the zip file
@@ -95,7 +104,7 @@ async def lifespan(app: FastAPI):
     """Initialize the predictor on startup."""
     # Download model files to a temporary directory
     model_dir = download_model_files(
-        "https://drive.google.com/uc?id=1oEs2n81nMAzdY4G9bdrji13pOKk6MOET",
+        MODEL_URL,
         "/tmp/pix2poly_model",
     )
 
