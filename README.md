@@ -169,7 +169,7 @@ This repository benefits from the following open-source work. We thank the autho
 
 ## Docker Usage
 
-Pix2Poly provides a Docker setup for easy deployment and inference. The Docker container includes a FastAPI server for REST API inference and supports command-line inference.
+Pix2Poly provides a Docker setup for easy deployment and inference. The Docker container includes a FastAPI server for REST API inference and supports command-line inference.  The API request and response format are suitable for running as a AWS Sagemaker inference endpoint running on a ml.g4dn.xlarge and the inference AMI version al2-ami-sagemaker-inference-gpu-3-1, where it is able to infer at the rate of 4 seconds per tile.
 
 ### Building the Docker Image
 
@@ -216,7 +216,8 @@ curl -X POST "http://localhost:8080/invocations" \
 ```
 
 The API returns JSON with the detected polygons:
-```json
+
+```text
 {
   "polygons": [
     [[x1, y1], [x2, y2], ...],
