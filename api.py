@@ -21,7 +21,7 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Get API key from environment variable
 API_KEY = os.getenv("API_KEY")
-EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH")
+EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_224")
 
 async def verify_api_key(
     header_key: Optional[str] = Depends(api_key_header),
@@ -107,7 +107,7 @@ async def lifespan(app: FastAPI):
     )
     
     # Initialize predictor with downloaded model
-    init_predictor(model_dir + "/" + EXPERIMENT_PATH)
+    init_predictor(os.path.join(model_dir, EXPERIMENT_PATH))
     yield
 
 app = FastAPI(
