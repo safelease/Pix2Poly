@@ -166,3 +166,77 @@ This repository benefits from the following open-source work. We thank the autho
 3. [Frame Field Learning](https://github.com/Lydorn/Polygonization-by-Frame-Field-Learning)
 4. [PolyWorld](https://github.com/zorzi-s/PolyWorldPretrainedNetwork)
 5. [HiSup](https://github.com/SarahwXU/HiSup)
+
+## Docker Usage
+
+Pix2Poly provides a Docker setup for easy deployment and inference. The Docker container includes a FastAPI server for REST API inference and supports command-line inference.
+
+### Building the Docker Image
+
+```bash
+docker build -t pix2poly .
+```
+
+### Running the API Server
+
+The Docker container automatically starts a FastAPI server on port 8080. You can run it with:
+
+```bash
+docker run -p 8080:8080 pix2poly
+```
+
+The API server will automatically download the pretrained model files on first startup and provide the following endpoints:
+
+- `POST /invocations` - Main inference endpoint for processing images
+- `GET /ping` - Health check endpoint
+
+#### API Usage
+
+The `/invocations` endpoint accepts images in multiple formats:
+
+1. **File Upload (multipart/form-data):**
+```bash
+curl -X POST "http://localhost:8080/invocations" \
+     -H "Content-Type: multipart/form-data" \
+     -F "file=@your_image.jpg"
+```
+
+2. **Base64 Encoded Image:**
+```bash
+curl -X POST "http://localhost:8080/invocations" \
+     -H "Content-Type: application/json" \
+     -d '{"image": "base64_encoded_image_data"}'
+```
+
+3. **Raw Image Data:**
+```bash
+curl -X POST "http://localhost:8080/invocations" \
+     -H "Content-Type: image/jpeg" \
+     --data-binary @your_image.jpg
+```
+
+The API returns JSON with the detected polygons:
+```json
+{
+  "polygons": [
+    [[x1, y1], [x2, y2], ...],
+    ...
+  ]
+}
+```
+
+### Environment Variables
+
+You can customize the Docker container behavior with these environment variables:
+
+- `EXPERIMENT_PATH`: Path to the experiment folder (default: `runs_share/Pix2Poly_inria_coco_224`)
+- `API_KEY`: Optional API key for authentication (if not set, authentication is disabled)
+
+Example with custom configuration:
+```bash
+docker run -p 8080:8080 \
+  -e EXPERIMENT_PATH=runs_share/Pix2Poly_inria_coco_224 \
+  -e API_KEY=your_secret_key \
+  pix2poly
+```
+

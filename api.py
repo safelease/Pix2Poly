@@ -72,30 +72,27 @@ def download_model_files(model_url: str, target_dir: str) -> str:
     Raises:
         ValueError: If download fails or model files are invalid
     """
-    try:
-        # Create target directory if it doesn't exist
-        target_path = Path(target_dir)
-        target_path.mkdir(parents=True, exist_ok=True)
-        
-        # Check if model files already exist
-        if target_path.exists() and any(target_path.iterdir()):
-            log(f"Model files already exist in {target_dir}, skipping download", "INFO")
-            return str(target_path)
-        
-        # Download the model files using gdown
-        zip_path = target_path / "runs_share.zip"
-        gdown.download(model_url, str(zip_path), quiet=False)
-        
-        # Extract the zip file
-        shutil.unpack_archive(zip_path, target_path)
-        
-        # Remove the zip file
-        zip_path.unlink()
-        
+    # Create target directory if it doesn't exist
+    target_path = Path(target_dir)
+    target_path.mkdir(parents=True, exist_ok=True)
+    
+    # Check if model files already exist
+    if target_path.exists() and any(target_path.iterdir()):
+        log(f"Model files already exist in {target_dir}, skipping download", "INFO")
         return str(target_path)
+    
+    # Download the model files using gdown
+    zip_path = target_path / "runs_share.zip"
+    gdown.download(model_url, str(zip_path), quiet=False)
+    
+    # Extract the zip file
+    shutil.unpack_archive(zip_path, target_path)
+    
+    # Remove the zip file
+    zip_path.unlink()
+    
+    return str(target_path)
         
-    except Exception as e:
-        raise ValueError(f"Failed to download model files: {str(e)}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
