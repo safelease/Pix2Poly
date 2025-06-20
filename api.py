@@ -164,42 +164,36 @@ async def invoke(
     """
     log(f"Invoking image analysis")
 
-    try:
-        if file:
-            # Handle file upload
-            image_data = await file.read()
-        else:
-            # Read request body
-            body = await request.body()
+    if file:
+        # Handle file upload
+        image_data = await file.read()
+    else:
+        # Read request body
+        body = await request.body()
 
-            # Parse the request body
-            try:
-                data = json.loads(body)
-                if "image" in data:
-                    # Handle base64 encoded image
-                    image_data = base64.b64decode(data["image"])
-                else:
-                    raise HTTPException(
-                        status_code=400, detail="No image data found in request"
-                    )
-            except json.JSONDecodeError:
-                # Handle raw image data
-                image_data = body
+        # Parse the request body
+        try:
+            data = json.loads(body)
+            if "image" in data:
+                # Handle base64 encoded image
+                image_data = base64.b64decode(data["image"])
+            else:
+                raise HTTPException(
+                    status_code=400, detail="No image data found in request"
+                )
+        except json.JSONDecodeError:
+            # Handle raw image data
+            image_data = body
 
-        # Get inferences
-        polygons = predictor.infer(image_data)
+    # Get inferences
+    polygons = predictor.infer(image_data)
 
-        # Prepare response
-        response = {
-            "polygons": polygons,
-        }
+    # Prepare response
+    response = {
+        "polygons": polygons,
+    }
 
-        return JSONResponse(content=response)
-
-    except Exception as e:
-        log(f"Error processing image: {str(e)}", "ERROR")
-        raise HTTPException(status_code=500, detail=str(e))
-
+    return JSONResponse(content=response)
 
 @app.get("/ping")
 async def ping(api_key: Optional[str] = Depends(verify_api_key)):
