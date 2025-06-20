@@ -9,4 +9,4 @@ conda activate pix2poly
 
 # Start the API server
 echo "Starting API server"
-uvicorn api:app --port 8080 --workers 1
+uvicorn api:app --port 8080 --workers 1 --backlog 10
