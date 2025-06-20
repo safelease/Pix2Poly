@@ -87,9 +87,14 @@ class PolygonInference:
             str: Filename of the latest checkpoint
         """
         checkpoint_dir = os.path.join(self.experiment_path, "logs", "checkpoints")
+        if not os.path.exists(checkpoint_dir):
+            raise FileNotFoundError(f"Checkpoint directory not found: {checkpoint_dir}")
+        
         checkpoint_files = [f for f in os.listdir(checkpoint_dir) if f.startswith('epoch_') and f.endswith('.pth')]
-        latest_checkpoint = sorted(checkpoint_files)[-1]
-        return latest_checkpoint
+        if not checkpoint_files:
+            raise FileNotFoundError(f"No checkpoint files found in {checkpoint_dir}")
+        
+        return sorted(checkpoint_files)[-1]
 
     def _process_tiles_batch(self, tiles: List[np.ndarray]) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
