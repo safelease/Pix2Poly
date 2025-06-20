@@ -45,8 +45,12 @@ def main():
     for contour in formatted_contours:
         for point in contour:
             x, y = point[0]
-            # Draw 2x2 red square
-            vis_image_merged[y-1:y+1, x-1:x+1] = [255, 0, 0]
+            # Draw 2x2 red square.
+            y_min = max(0, y-1)
+            y_max = min(height, y+1)
+            x_min = max(0, x-1)
+            x_max = min(width, x+1)
+            vis_image_merged[y_min:y_max, x_min:x_max] = [255, 0, 0]
     
     plt.imshow(vis_image_merged)
     plt.axis('off')

@@ -56,10 +56,9 @@ def create_mask(tgt, pad_idx):
 
     tgt_seq_len = tgt.size(1)
     tgt_mask = generate_square_subsequent_mask(tgt_seq_len)
-    tgt_padding_mask = (tgt == pad_idx).float().masked_fill(tgt == pad_idx, float('-inf'))
+    tgt_padding_mask = (tgt == pad_idx)
 
     return tgt_mask, tgt_padding_mask
-
 
 class AverageMeter:
     def __init__(self, name="Metric"):

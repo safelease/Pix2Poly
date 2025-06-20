@@ -27,7 +27,5 @@ dependencies:
     - uvicorn>=0.15.0
     - python-multipart>=0.0.5
     - tqdm>=4.62.0
-    - pulumi>=3.0.0
-    - pulumi-aws>=5.0.0
-    - gdown>=4.7.1
+    - diskcache>=5.6.0
   
