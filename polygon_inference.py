@@ -171,16 +171,11 @@ class PolygonInference:
         # Transform each polygon from tile coordinates to original image coordinates
         for tile_result, (x, y, x_end, y_end) in zip(tile_results, positions):
             tile_polygons = tile_result['polygons']
-            tile_width = x_end - x
-            tile_height = y_end - y
             
             # Transform each polygon from tile coordinates to original image coordinates
             for poly in tile_polygons:
-                # Scale coordinates to match tile size
-                scaled_poly = poly * np.array([tile_width/CFG.INPUT_WIDTH, tile_height/CFG.INPUT_HEIGHT])
-                
-                # Translate to original image position
-                translated_poly = scaled_poly + np.array([x, y])
+                # Translate to original image position (no scaling needed since TILE_SIZE = INPUT_WIDTH)
+                translated_poly = poly + np.array([x, y])
                 
                 # Convert to shapely polygon
                 shapely_poly = shapely.geometry.Polygon(translated_poly)
