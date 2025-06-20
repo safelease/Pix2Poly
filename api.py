@@ -57,10 +57,10 @@ async def verify_api_key(
 
 
 def download_model_files(model_url: str, target_dir: str) -> str:
-    """Download model files from GitHub releases to the target directory.
+    """Download model files to the target directory.
 
     Args:
-        model_url: GitHub releases URL to download the model files from
+        model_url: URL to download the model files from
         target_dir: Directory to save the model files to
 
     Returns:
