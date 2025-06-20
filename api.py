@@ -28,13 +28,11 @@ EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_2
 MODEL_URL = os.getenv("MODEL_URL", "https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip")
 
 # Cache configuration
-CACHE_SIZE_LIMIT = int(os.getenv("CACHE_SIZE_LIMIT", 100 * 1024 * 1024))  # 100MB default
 CACHE_TTL = int(os.getenv("CACHE_TTL", 24 * 3600))  # 24 hours
 
 # Global cache instance
 cache = Cache(
     directory=os.path.join(tempfile.gettempdir(), "pix2poly_cache"),
-    size_limit=CACHE_SIZE_LIMIT,
     timeout=1,  # 1 second timeout for cache operations
     disk_min_file_size=0,  # Store all items on disk
     disk_pickle_protocol=4,  # Use protocol 4 for better compatibility
