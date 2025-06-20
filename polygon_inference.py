@@ -73,18 +73,22 @@ class PolygonInference:
         self.model.eval()
         
         # Load latest checkpoint
-        latest_checkpoint = self._find_latest_checkpoint()
+        latest_checkpoint = self._find_single_checkpoint()
         checkpoint_path = os.path.join(self.experiment_path, "logs", "checkpoints", latest_checkpoint)
         log(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
         self.model.load_state_dict(checkpoint['state_dict'])
         log("Checkpoint loaded successfully")
 
-    def _find_latest_checkpoint(self) -> str:
-        """Find the checkpoint with the highest epoch number.
+    def _find_single_checkpoint(self) -> str:
+        """Find the single checkpoint file. Crashes if there is more than one checkpoint.
         
         Returns:
-            str: Filename of the latest checkpoint
+            str: Filename of the single checkpoint
+            
+        Raises:
+            FileNotFoundError: If no checkpoint directory or files are found
+            RuntimeError: If more than one checkpoint file is found
         """
         checkpoint_dir = os.path.join(self.experiment_path, "logs", "checkpoints")
         if not os.path.exists(checkpoint_dir):
@@ -94,7 +98,10 @@ class PolygonInference:
         if not checkpoint_files:
             raise FileNotFoundError(f"No checkpoint files found in {checkpoint_dir}")
         
-        return sorted(checkpoint_files)[-1]
+        if len(checkpoint_files) > 1:
+            raise RuntimeError(f"Multiple checkpoint files found in {checkpoint_dir}: {checkpoint_files}. Expected exactly one checkpoint.")
+        
+        return checkpoint_files[0]
 
     def _process_tiles_batch(self, tiles: List[np.ndarray]) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
