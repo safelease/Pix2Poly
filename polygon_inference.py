@@ -11,6 +11,7 @@ import cv2
 import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from shapely.geometry import Polygon
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -300,11 +301,8 @@ class PolygonInference:
             tile = tiles[i]
             tile_result = tile_results[i]
             
-            # Convert RGB to display format
-            display_tile = cv2.cvtColor(tile, cv2.COLOR_RGB2BGR) if tile.shape[-1] == 3 else tile
-            display_tile = cv2.cvtColor(display_tile, cv2.COLOR_BGR2RGB)
-            
-            ax.imshow(display_tile)
+            # Tiles are already in RGB format, no conversion needed for matplotlib
+            ax.imshow(tile)
             ax.set_title(f'Tile {i+1}')
             ax.axis('off')
             
@@ -359,39 +357,40 @@ class PolygonInference:
         for tile_idx, (tile_result, (x, y, x_end, y_end)) in enumerate(zip(tile_results, positions)):
             tile_polygons = tile_result["polygons"]
             
+            # Check if polygon has any part in the central 50% of the tile
+            tile_width = x_end - x
+            tile_height = y_end - y
+            
+            # Define central region boundaries (25% to 75% in each dimension)
+            central_x_min = tile_width * 0.25
+            central_x_max = tile_width * 0.75
+            central_y_min = tile_height * 0.25
+            central_y_max = tile_height * 0.75
+            
+            # Create square polygon representing the central region
+            central_region_coords = [
+                (central_x_min, central_y_min),  # top-left
+                (central_x_max, central_y_min),  # top-right
+                (central_x_max, central_y_max),  # bottom-right
+                (central_x_min, central_y_max)   # bottom-left
+            ]
+            central_polygon = Polygon(central_region_coords)
+            
             for poly_idx, poly in enumerate(tile_polygons):
                 if len(poly) < 3:  # Skip invalid polygons
                     continue
                 
-                # Check if polygon has any part in the central 50% of the tile
-                tile_width = x_end - x
-                tile_height = y_end - y
+                # Use Shapely for precise polygon intersection detection
+                # Convert numpy arrays to tuples for Shapely
+                poly_coords = [(float(x), float(y)) for x, y in poly]
                 
-                # Define central region boundaries (25% to 75% in each dimension)
-                central_x_min = tile_width * 0.25
-                central_x_max = tile_width * 0.75
-                central_y_min = tile_height * 0.25
-                central_y_max = tile_height * 0.75
+                # Create Shapely polygon for detected shape
+                detected_polygon = Polygon(poly_coords)
                 
-                # Check if any part of the polygon (including interior) intersects with central region
-                # Create a mask for the polygon
-                poly_mask = np.zeros((tile_height, tile_width), dtype=np.uint8)
-                poly_coords_int = poly.astype(np.int32)
-                cv2.fillPoly(poly_mask, [poly_coords_int], 255)
+                # Check for intersection
+                has_intersection = detected_polygon.intersects(central_polygon)
                 
-                # Create a mask for the central region
-                central_mask = np.zeros((tile_height, tile_width), dtype=np.uint8)
-                central_x_min_int = int(central_x_min)
-                central_y_min_int = int(central_y_min)
-                central_x_max_int = int(central_x_max)
-                central_y_max_int = int(central_y_max)
-                central_mask[central_y_min_int:central_y_max_int, central_x_min_int:central_x_max_int] = 255
-                
-                # Check if there's any intersection between polygon and central region
-                intersection = cv2.bitwise_and(poly_mask, central_mask)
-                has_intersection = np.any(intersection > 0)
-                
-                # Skip polygon if no part of it intersects with the central region
+                # Skip polygon if no intersection with central region
                 if not has_intersection:
                     continue
                 
