@@ -373,14 +373,26 @@ class PolygonInference:
                 central_y_min = tile_height * 0.25
                 central_y_max = tile_height * 0.75
                 
-                # Check if any vertex of the polygon is in the central region
-                in_central_region = (
-                    (poly[:, 0] >= central_x_min) & (poly[:, 0] <= central_x_max) &
-                    (poly[:, 1] >= central_y_min) & (poly[:, 1] <= central_y_max)
-                )
+                # Check if any part of the polygon (including interior) intersects with central region
+                # Create a mask for the polygon
+                poly_mask = np.zeros((tile_height, tile_width), dtype=np.uint8)
+                poly_coords_int = poly.astype(np.int32)
+                cv2.fillPoly(poly_mask, [poly_coords_int], 255)
                 
-                # Skip polygon if no part of it exists in the central region
-                if not np.any(in_central_region):
+                # Create a mask for the central region
+                central_mask = np.zeros((tile_height, tile_width), dtype=np.uint8)
+                central_x_min_int = int(central_x_min)
+                central_y_min_int = int(central_y_min)
+                central_x_max_int = int(central_x_max)
+                central_y_max_int = int(central_y_max)
+                central_mask[central_y_min_int:central_y_max_int, central_x_min_int:central_x_max_int] = 255
+                
+                # Check if there's any intersection between polygon and central region
+                intersection = cv2.bitwise_and(poly_mask, central_mask)
+                has_intersection = np.any(intersection > 0)
+                
+                # Skip polygon if no part of it intersects with the central region
+                if not has_intersection:
                     continue
                 
                 # Additional rule: Skip if polygon occupies two or more corners
@@ -509,6 +521,8 @@ class PolygonInference:
             if tile.size == 0:
                 continue
             tiles.append(tile)
+
+        log(f"Total number of tiles to process: {len(tiles)}")
 
         # Process tiles in batches
         all_results: List[Dict[str, List[np.ndarray]]] = []
