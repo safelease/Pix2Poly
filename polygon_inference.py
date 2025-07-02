@@ -363,34 +363,43 @@ class PolygonInference:
                 if len(poly) < 3:  # Skip invalid polygons
                     continue
                 
-                # Check if polygon is in a corner (should be removed)
+                # Check if polygon has any part in the central 50% of the tile
                 tile_width = x_end - x
                 tile_height = y_end - y
-                edge_tolerance = 8.0  # Consider points within 8 pixels of edge as "on edge"
-                corner_tolerance = 2.0  # Consider points within 2 pixels of corner as "near corner"
                 
-                # Check which edges have points
-                on_left_edge = poly[:, 0] <= edge_tolerance
-                on_right_edge = poly[:, 0] >= tile_width - edge_tolerance
-                on_top_edge = poly[:, 1] <= edge_tolerance
-                on_bottom_edge = poly[:, 1] >= tile_height - edge_tolerance
+                # Define central region boundaries (25% to 75% in each dimension)
+                central_x_min = tile_width * 0.25
+                central_x_max = tile_width * 0.75
+                central_y_min = tile_height * 0.25
+                central_y_max = tile_height * 0.75
                 
-                # Check if near any corner
-                near_top_left = (poly[:, 0] <= corner_tolerance) & (poly[:, 1] <= corner_tolerance)
-                near_top_right = (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] <= corner_tolerance)
-                near_bottom_left = (poly[:, 0] <= corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance)
-                near_bottom_right = (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance)
-                
-                # Check for corner polygons (polygons that span two adjacent edges AND are near the corner)
-                is_corner_polygon = (
-                    (np.any(on_top_edge) and np.any(on_left_edge) and np.any(near_top_left)) or
-                    (np.any(on_top_edge) and np.any(on_right_edge) and np.any(near_top_right)) or
-                    (np.any(on_bottom_edge) and np.any(on_left_edge) and np.any(near_bottom_left)) or
-                    (np.any(on_bottom_edge) and np.any(on_right_edge) and np.any(near_bottom_right))
+                # Check if any vertex of the polygon is in the central region
+                in_central_region = (
+                    (poly[:, 0] >= central_x_min) & (poly[:, 0] <= central_x_max) &
+                    (poly[:, 1] >= central_y_min) & (poly[:, 1] <= central_y_max)
                 )
                 
-                if is_corner_polygon:
-                   continue
+                # Skip polygon if no part of it exists in the central region
+                if not np.any(in_central_region):
+                    continue
+                
+                # Additional rule: Skip if polygon occupies two or more corners
+                corner_tolerance = 20.0  # Distance from corner to be considered "in corner"
+                
+                # Define corner regions
+                corners = [
+                    (poly[:, 0] <= corner_tolerance) & (poly[:, 1] <= corner_tolerance),  # top_left
+                    (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] <= corner_tolerance),  # top_right
+                    (poly[:, 0] <= corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance),  # bottom_left
+                    (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance)  # bottom_right
+                ]
+                
+                # Count how many corners have any points
+                occupied_corners = sum(1 for corner_mask in corners if np.any(corner_mask))
+                
+                # Skip polygon if it occupies two or more corners
+                if occupied_corners >= 2:
+                    continue
                 
                 # Transform polygon from tile coordinates to image coordinates
                 transformed_poly = poly + np.array([x, y])
@@ -408,12 +417,9 @@ class PolygonInference:
                 # Fill the polygon region in the bitmap
                 cv2.fillPoly(bitmap, [poly_coords], 255)
         
-        # Apply morphological closing to fill small gaps and smooth edges
-        # Scale kernel size proportionally to the scaled bitmap
-        kernel_size = max(1, min(3 * scale_factor, min(image_height, image_width) * scale_factor // 1000))  # Adaptive kernel size
-        if kernel_size > 1:
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-            bitmap = cv2.morphologyEx(bitmap, cv2.MORPH_CLOSE, kernel)
+        kernel_size = 32
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        bitmap = cv2.morphologyEx(bitmap, cv2.MORPH_CLOSE, kernel)
         
         # Save bitmap for debugging (optional)
         cv2.imwrite('debug_polygon_bitmap.png', bitmap)
