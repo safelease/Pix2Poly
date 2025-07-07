@@ -184,7 +184,7 @@ class PolygonInference:
         return checkpoint_files[0]
 
     def _process_tiles_batch(
-        self, tiles: List[np.ndarray]
+        self, tiles: List[np.ndarray], debug: bool = False
     ) -> List[Dict[str, List[np.ndarray]]]:
         """Process a single batch of tiles.
 
@@ -195,14 +195,18 @@ class PolygonInference:
             list[dict]: List of results for each tile, where each result contains:
                 - polygons: List of polygon coordinates
         """
-        # Generate cache key and try to load from cache
-        cache_key = self._generate_cache_key(tiles)
-        cached_results = self._load_from_cache(cache_key)
-        if cached_results is not None:
-            log(f"Cache hit for batch of {len(tiles)} tiles")
-            return cached_results
+        # Generate cache key and try to load from cache (only when debug=True)
+        if debug:
+            cache_key = self._generate_cache_key(tiles)
+            cached_results = self._load_from_cache(cache_key)
+            if cached_results is not None:
+                log(f"Cache hit for batch of {len(tiles)} tiles")
+                return cached_results
 
-        log(f"Cache miss for batch of {len(tiles)} tiles, processing...")
+            log(f"Cache miss for batch of {len(tiles)} tiles, processing...")
+        else:
+            log(f"Processing batch of {len(tiles)} tiles (caching disabled)...")
+            cache_key = None
         
         valid_transforms = A.Compose(
             [
@@ -261,8 +265,9 @@ class PolygonInference:
 
                 results.append(result)
 
-        # Save results to cache
-        self._save_to_cache(cache_key, results)
+        # Save results to cache (only when debug=True)
+        if debug and cache_key is not None:
+            self._save_to_cache(cache_key, results)
         
         return results
 
@@ -386,6 +391,89 @@ class PolygonInference:
         for tile_result in tile_results:
             tile_result["polygon_valid"] = [True] * len(tile_result["polygons"])
         
+        # Remove overlapping polygons within each tile (before edge validation)
+        
+        def check_polygon_overlap(poly1, poly2):
+            """Check if two polygons overlap using Shapely."""
+            try:
+                # Convert numpy arrays to Shapely polygons
+                if len(poly1) < 3 or len(poly2) < 3:
+                    return False
+                
+                shapely_poly1 = Polygon(poly1)
+                shapely_poly2 = Polygon(poly2)
+                
+                # Check if polygons are valid
+                if not shapely_poly1.is_valid or not shapely_poly2.is_valid:
+                    return False
+                
+                # Check for intersection (but not just touching)
+                return shapely_poly1.intersects(shapely_poly2) and not shapely_poly1.touches(shapely_poly2)
+            except:
+                return False
+
+        def calculate_polygon_area(poly):
+            """Calculate the area of a polygon."""
+            try:
+                if len(poly) < 3:
+                    return 0
+                shapely_poly = Polygon(poly)
+                if not shapely_poly.is_valid:
+                    return 0
+                return shapely_poly.area
+            except:
+                return 0
+        
+        for tile_result in tile_results:
+            polygons = tile_result["polygons"]
+            polygon_valid = tile_result["polygon_valid"]
+            
+            if len(polygons) <= 1:
+                continue  # Skip tiles with 0 or 1 polygon
+            
+            # Keep iterating until no overlaps are found
+            while True:
+                # Get currently valid polygons with their indices
+                valid_polygons = [(i, poly) for i, poly in enumerate(polygons) if polygon_valid[i]]
+                
+                if len(valid_polygons) <= 1:
+                    break  # No overlaps possible with 0 or 1 valid polygons
+                
+                # Find all overlapping pairs
+                overlapping_pairs = []
+                for i in range(len(valid_polygons)):
+                    for j in range(i + 1, len(valid_polygons)):
+                        idx1, poly1 = valid_polygons[i]
+                        idx2, poly2 = valid_polygons[j]
+                        
+                        if check_polygon_overlap(poly1, poly2):
+                            overlapping_pairs.append((idx1, idx2))
+                
+                if not overlapping_pairs:
+                    break  # No overlaps found
+                
+                # Find all polygons involved in overlaps
+                overlapping_indices = set()
+                for idx1, idx2 in overlapping_pairs:
+                    overlapping_indices.add(idx1)
+                    overlapping_indices.add(idx2)
+                
+                # Calculate areas for overlapping polygons
+                polygon_areas = []
+                for idx in overlapping_indices:
+                    area = calculate_polygon_area(polygons[idx])
+                    polygon_areas.append((idx, area))
+                
+                # Find the largest polygon
+                largest_idx, _ = max(polygon_areas, key=lambda x: x[1])
+                
+                # Mark the largest polygon as invalid
+                polygon_valid[largest_idx] = False
+                
+                # Continue to next iteration to check for remaining overlaps
+        
+        # Now perform edge validation on remaining valid polygons
+        
         def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
             """Check if an edge is colinear with the tile boundary within tolerance."""
             x_min, y_min, x_max, y_max = tile_bounds
@@ -415,25 +503,33 @@ class PolygonInference:
             return False
         
         def generate_edge_sample_points(p1, p2, num_points=10, margin_px=10):
-            """Generate equally spaced points along an edge, leaving a fixed margin at each end."""
+            """Generate equally spaced points along an edge, leaving a fixed margin at each end.
+            Always generates at least one point in the center of the line."""
             # Calculate edge length
             edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
             
-            # If edge is too short to accommodate margins, return empty list
-            if edge_length <= 2 * margin_px:
-                return []
+            # Always generate center point
+            center_x = p1[0] + 0.5 * (p2[0] - p1[0])
+            center_y = p1[1] + 0.5 * (p2[1] - p1[1])
             
-            # Calculate the usable length (excluding margins)
-            usable_length = edge_length - 2 * margin_px
+            # If edge is too short to accommodate margins, return just the center point
+            if edge_length <= 2 * margin_px:
+                return [(center_x, center_y)]
             
             # Calculate t values for the start and end of the usable region
             t_start = margin_px / edge_length
             t_end = 1.0 - margin_px / edge_length
             
             points = []
+            
+            # If only one point requested, return center point
+            if num_points == 1:
+                return [(center_x, center_y)]
+            
+            # Generate points evenly spaced within the usable region
             for i in range(num_points):
                 # Distribute points evenly within the usable region
-                t_local = i / (num_points - 1) if num_points > 1 else 0.5
+                t_local = i / (num_points - 1)
                 t = t_start + t_local * (t_end - t_start)
                 
                 x = p1[0] + t * (p2[0] - p1[0])
@@ -451,7 +547,7 @@ class PolygonInference:
             return cv2.pointPolygonTest(poly_points, point, False) >= 0
         
         # Process each tile
-        for tile_idx, (tile_result, tile_pos) in enumerate(zip(tile_results, positions)):
+        for tile_result, tile_pos in zip(tile_results, positions):
             x, y, x_end, y_end = tile_pos
             tile_width = x_end - x
             tile_height = y_end - y
@@ -460,8 +556,12 @@ class PolygonInference:
             polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
             
-            # Check each polygon in this tile
+            # Check each polygon in this tile (only those still valid after overlap removal)
             for poly_idx, polygon in enumerate(polygons):
+                # Skip polygons already rejected for overlap
+                if not polygon_valid[poly_idx]:
+                    continue
+                
                 if len(polygon) < 3:
                     polygon_valid[poly_idx] = False
                     continue
@@ -497,8 +597,8 @@ class PolygonInference:
                         point_found_in_other_polygon = False
                         
                         # Check all other tiles
-                        for other_tile_idx, (other_tile_result, other_tile_pos) in enumerate(zip(tile_results, positions)):
-                            if other_tile_idx == tile_idx:
+                        for other_tile_result, other_tile_pos in zip(tile_results, positions):
+                            if other_tile_result is tile_result:
                                 continue
                             
                             other_x, other_y, other_x_end, other_y_end = other_tile_pos
@@ -518,8 +618,12 @@ class PolygonInference:
                                 # Convert global point to other tile's local coordinates
                                 local_point = (global_point[0] - other_x, global_point[1] - other_y)
                                 
-                                # Check if point is inside any polygon in this other tile
-                                for other_polygon in other_tile_result["polygons"]:
+                                # Check if point is inside any valid polygon in this other tile
+                                for other_poly_idx, other_polygon in enumerate(other_tile_result["polygons"]):
+                                    # Only consider polygons that are still valid (not rejected for overlap)
+                                    if not other_tile_result["polygon_valid"][other_poly_idx]:
+                                        continue
+                                    
                                     if point_in_polygon(local_point, other_polygon):
                                         point_found_in_other_polygon = True
                                         break
@@ -546,6 +650,7 @@ class PolygonInference:
         positions: List[Tuple[int, int, int, int]],
         image_height: int,
         image_width: int,
+        debug: bool = False,
     ) -> List[np.ndarray]:
         """Merge polygon predictions from multiple tiles using a bitmap approach.
 
@@ -570,8 +675,6 @@ class PolygonInference:
         
         # Fill bitmap with polygon regions
         for tile_idx, (tile_result, (x, y, x_end, y_end)) in enumerate(zip(tile_results, positions)):
-            log(f"tile_idx: {tile_idx}")
-                
             tile_polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
             
@@ -601,8 +704,9 @@ class PolygonInference:
         bitmap = cv2.morphologyEx(bitmap, cv2.MORPH_CLOSE, kernel)
         
         # Save bitmap for debugging (optional)
-        cv2.imwrite('debug_polygon_bitmap.png', bitmap)
-        log("Saved debug bitmap to debug_polygon_bitmap.png")
+        if debug:
+            cv2.imwrite('debug_polygon_bitmap.png', bitmap)
+            log("Saved debug bitmap to debug_polygon_bitmap.png")
         
         # Find contours in the bitmap
         contours, _ = cv2.findContours(bitmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -633,11 +737,12 @@ class PolygonInference:
         log(f"Bitmap approach: {len(merged_polygons)} polygons extracted from bitmap")
         return merged_polygons
 
-    def infer(self, image_data: bytes) -> List[List[List[float]]]:
+    def infer(self, image_data: bytes, debug: bool = False) -> List[List[List[float]]]:
         """Infer polygons in an image.
 
         Args:
             image_data (bytes): Raw image data
+            debug (bool): Whether to save debug images (tile visualization and bitmap)
 
         Returns:
             list[list[list[float]]]: List of polygons where each polygon is a list of [x,y] coordinates.
@@ -697,7 +802,7 @@ class PolygonInference:
         for i in range(0, len(tiles), CFG.PREDICTION_BATCH_SIZE):
             batch_start_time = time.time()
             batch_tiles = tiles[i : i + CFG.PREDICTION_BATCH_SIZE]
-            batch_results = self._process_tiles_batch(batch_tiles)
+            batch_results = self._process_tiles_batch(batch_tiles, debug)
             all_results.extend(batch_results)
             
             batch_time = time.time() - batch_start_time
@@ -707,9 +812,10 @@ class PolygonInference:
         all_results = self._validate_all_polygons(all_results, bboxes, height, width)
 
         # Create tile visualization
-        self._create_tile_visualization(tiles, all_results, bboxes)
+        if debug:
+            self._create_tile_visualization(tiles, all_results, bboxes)
 
-        merged_polygons = self._merge_polygons(all_results, bboxes, height, width)
+        merged_polygons = self._merge_polygons(all_results, bboxes, height, width, debug)
 
         # Convert to list format
         polygons_list = [poly.tolist() for poly in merged_polygons]
