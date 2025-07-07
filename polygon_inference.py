@@ -568,9 +568,9 @@ class PolygonInference:
                 
                 # Find edges that are near tile boundaries
                 boundary_edges = []
-                for i in range(len(polygon)):
+                for i in range(len(polygon) - 1):
                     p1 = polygon[i]
-                    p2 = polygon[(i + 1) % len(polygon)]
+                    p2 = polygon[i + 1]
                     
                     if is_edge_near_tile_boundary(p1, p2, tile_bounds):
                         boundary_edges.append((p1, p2))
