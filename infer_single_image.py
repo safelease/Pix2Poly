@@ -21,7 +21,7 @@ def main():
     inference = PolygonInference(args.experiment_path)
     
     # Get inference results
-    polygons_list = inference.infer(image_data)
+    polygons_list = inference.infer(image_data, debug=True)
 
     # Decode image for visualization
     nparr = np.frombuffer(image_data, np.uint8)
