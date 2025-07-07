@@ -282,48 +282,263 @@ class PolygonInference:
         if not tiles:
             return
 
-        # Calculate grid dimensions
-        num_tiles = len(tiles)
-        cols = math.ceil(math.sqrt(num_tiles))
-        rows = math.ceil(num_tiles / cols)
+        # Calculate grid dimensions based on actual spatial arrangement
+        # Extract unique x and y starting positions
+        x_positions = sorted(set(pos[0] for pos in positions))
+        y_positions = sorted(set(pos[1] for pos in positions))
+        
+        cols = len(x_positions)
+        rows = len(y_positions)
+        
+        # Create mapping from (x, y) position to (row, col) index
+        x_to_col = {x: i for i, x in enumerate(x_positions)}
+        y_to_row = {y: i for i, y in enumerate(y_positions)}
         
         # Create figure
         fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+        
+        # Handle different subplot layouts
         if rows == 1 and cols == 1:
+            axes = [[axes]]
+        elif rows == 1:
             axes = [axes]
-        elif rows == 1 or cols == 1:
-            axes = axes.flatten()
-        else:
-            axes = axes.flatten()
+        elif cols == 1:
+            axes = [[ax] for ax in axes]
+        
+        # Initialize all subplots as empty
+        for i in range(rows):
+            for j in range(cols):
+                axes[i][j].axis('off')
 
-        for i in range(num_tiles):
-            ax = axes[i]
-            tile = tiles[i]
-            tile_result = tile_results[i]
+        # Place each tile in the correct position
+        for i, (tile, tile_result, pos) in enumerate(zip(tiles, tile_results, positions)):
+            x, y, x_end, y_end = pos
+            
+            # Get the grid position for this tile
+            row = y_to_row[y]
+            col = x_to_col[x]
+            
+            ax = axes[row][col]
             
             # Tiles are already in RGB format, no conversion needed for matplotlib
             ax.imshow(tile)
-            ax.set_title(f'Tile {i+1}')
+            ax.set_title(f'Tile {i}')
             ax.axis('off')
             
             # Draw polygons on this tile
-            for poly in tile_result["polygons"]:
+            polygons = tile_result["polygons"]
+            polygon_valid = tile_result["polygon_valid"]
+            
+            for poly_idx, (poly, is_valid) in enumerate(zip(polygons, polygon_valid)):
                 if len(poly) > 2:
+                    # Use green for valid polygons, red for invalid ones
+                    color = 'g' if is_valid else 'r'
+                    vertex_color = 'red' if is_valid else 'darkred'
+                    
                     # Close the polygon for visualization
                     poly_closed = np.vstack([poly, poly[0]])
-                    ax.plot(poly_closed[:, 0], poly_closed[:, 1], 'g-', linewidth=2)
+                    ax.plot(poly_closed[:, 0], poly_closed[:, 1], f'{color}-', linewidth=2)
                     
                     # Draw vertices
-                    ax.scatter(poly[:, 0], poly[:, 1], c='red', s=20, zorder=5)
-
-        # Hide unused subplots
-        for i in range(num_tiles, len(axes)):
-            axes[i].axis('off')
+                    ax.scatter(poly[:, 0], poly[:, 1], c=vertex_color, s=20, zorder=5)
+                    
+                    # Calculate centroid and render polygon index
+                    centroid_x = np.mean(poly[:, 0])
+                    centroid_y = np.mean(poly[:, 1])
+                    
+                    # Use white text with black outline for visibility
+                    text_color = 'white'
+                    outline_color = 'black'
+                    
+                    # Add text with outline for better visibility
+                    ax.text(centroid_x, centroid_y, str(poly_idx), 
+                           fontsize=12, fontweight='bold', color=text_color,
+                           ha='center', va='center', zorder=6,
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor=outline_color, alpha=0.7))
 
         plt.tight_layout()
         plt.savefig('tile-visualization.png', dpi=150, bbox_inches='tight')
         plt.close()
-        log(f"Saved tile visualization with {num_tiles} tiles to tile-visualization.png")
+        log(f"Saved tile visualization to tile-visualization.png")
+
+    def _validate_all_polygons(
+        self, 
+        tile_results: List[Dict[str, List[np.ndarray]]], 
+        positions: List[Tuple[int, int, int, int]], 
+        image_height: int, 
+        image_width: int
+    ) -> List[Dict[str, List[np.ndarray]]]:
+        """Validate all polygons in the tile results and add validation attributes.
+        
+        This method implements a heuristic to validate polygons by checking if their boundary edges
+        have points that are contained in polygons from other tiles.
+        
+        Args:
+            tile_results (List[Dict[str, List[np.ndarray]]]): List of tile results containing polygons
+            positions (List[Tuple[int, int, int, int]]): List of (x, y, x_end, y_end) tuples for each tile's position
+            image_height (int): Height of the original image
+            image_width (int): Width of the original image
+            
+        Returns:
+            List[Dict[str, List[np.ndarray]]]: Updated tile results with validation attributes
+        """
+        # Initialize polygon_valid list for each tile
+        for tile_result in tile_results:
+            tile_result["polygon_valid"] = [True] * len(tile_result["polygons"])
+        
+        def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
+            """Check if an edge is colinear with the tile boundary within tolerance."""
+            x_min, y_min, x_max, y_max = tile_bounds
+            x1, y1 = p1
+            x2, y2 = p2
+            
+            # Check if edge is roughly horizontal and colinear with top boundary
+            if (abs(y1 - y_min) <= tolerance and abs(y2 - y_min) <= tolerance and
+                abs(y1 - y2) <= tolerance):
+                return True
+            
+            # Check if edge is roughly horizontal and colinear with bottom boundary  
+            if (abs(y1 - y_max) <= tolerance and abs(y2 - y_max) <= tolerance and
+                abs(y1 - y2) <= tolerance):
+                return True
+            
+            # Check if edge is roughly vertical and colinear with left boundary
+            if (abs(x1 - x_min) <= tolerance and abs(x2 - x_min) <= tolerance and
+                abs(x1 - x2) <= tolerance):
+                return True
+            
+            # Check if edge is roughly vertical and colinear with right boundary
+            if (abs(x1 - x_max) <= tolerance and abs(x2 - x_max) <= tolerance and
+                abs(x1 - x2) <= tolerance):
+                return True
+            
+            return False
+        
+        def generate_edge_sample_points(p1, p2, num_points=10, margin_px=10):
+            """Generate equally spaced points along an edge, leaving a fixed margin at each end."""
+            # Calculate edge length
+            edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+            
+            # If edge is too short to accommodate margins, return empty list
+            if edge_length <= 2 * margin_px:
+                return []
+            
+            # Calculate the usable length (excluding margins)
+            usable_length = edge_length - 2 * margin_px
+            
+            # Calculate t values for the start and end of the usable region
+            t_start = margin_px / edge_length
+            t_end = 1.0 - margin_px / edge_length
+            
+            points = []
+            for i in range(num_points):
+                # Distribute points evenly within the usable region
+                t_local = i / (num_points - 1) if num_points > 1 else 0.5
+                t = t_start + t_local * (t_end - t_start)
+                
+                x = p1[0] + t * (p2[0] - p1[0])
+                y = p1[1] + t * (p2[1] - p1[1])
+                points.append((x, y))
+            
+            return points
+        
+        def point_in_polygon(point, polygon):
+            """Check if a point is inside a polygon using OpenCV."""
+            if len(polygon) < 3:
+                return False
+            # Convert polygon to the format expected by cv2.pointPolygonTest
+            poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
+            return cv2.pointPolygonTest(poly_points, point, False) >= 0
+        
+        # Process each tile
+        for tile_idx, (tile_result, tile_pos) in enumerate(zip(tile_results, positions)):
+            x, y, x_end, y_end = tile_pos
+            tile_width = x_end - x
+            tile_height = y_end - y
+            tile_bounds = (0, 0, tile_width, tile_height)  # tile local coordinates
+            
+            polygons = tile_result["polygons"]
+            polygon_valid = tile_result["polygon_valid"]
+            
+            # Check each polygon in this tile
+            for poly_idx, polygon in enumerate(polygons):
+                if len(polygon) < 3:
+                    polygon_valid[poly_idx] = False
+                    continue
+                
+                # Find edges that are near tile boundaries
+                boundary_edges = []
+                for i in range(len(polygon)):
+                    p1 = polygon[i]
+                    p2 = polygon[(i + 1) % len(polygon)]
+                    
+                    if is_edge_near_tile_boundary(p1, p2, tile_bounds):
+                        boundary_edges.append((p1, p2))
+                
+                # If no boundary edges, polygon is valid (not on tile boundary)
+                if not boundary_edges:
+                    continue
+                
+                # Check sample points along boundary edges
+                polygon_is_valid = True
+                
+                for p1, p2 in boundary_edges:
+                    sample_points = generate_edge_sample_points(p1, p2)
+                    
+                    # Determine if this edge is horizontal or vertical
+                    is_horizontal_edge = abs(p1[1] - p2[1]) <= 2  # Edge is roughly horizontal
+                    is_vertical_edge = abs(p1[0] - p2[0]) <= 2    # Edge is roughly vertical
+                    
+                    # Convert sample points to global image coordinates
+                    global_sample_points = [(px + x, py + y) for px, py in sample_points]
+                    
+                    # Check if each sample point is contained in any polygon from other tiles
+                    for global_point in global_sample_points:
+                        point_found_in_other_polygon = False
+                        
+                        # Check all other tiles
+                        for other_tile_idx, (other_tile_result, other_tile_pos) in enumerate(zip(tile_results, positions)):
+                            if other_tile_idx == tile_idx:
+                                continue
+                            
+                            other_x, other_y, other_x_end, other_y_end = other_tile_pos
+                            
+                            # Skip tiles in same row for horizontal edges
+                            if is_horizontal_edge and other_y == y:
+                                continue
+                            
+                            # Skip tiles in same column for vertical edges  
+                            if is_vertical_edge and other_x == x:
+                                continue
+                            
+                            # Check if point is within other tile bounds
+                            if (other_x <= global_point[0] < other_x_end and 
+                                other_y <= global_point[1] < other_y_end):
+                                
+                                # Convert global point to other tile's local coordinates
+                                local_point = (global_point[0] - other_x, global_point[1] - other_y)
+                                
+                                # Check if point is inside any polygon in this other tile
+                                for other_polygon in other_tile_result["polygons"]:
+                                    if point_in_polygon(local_point, other_polygon):
+                                        point_found_in_other_polygon = True
+                                        break
+                                
+                                if point_found_in_other_polygon:
+                                    break
+                        
+                        # If any sample point is not found in other polygons, mark as invalid
+                        if not point_found_in_other_polygon:
+                            polygon_is_valid = False
+                            break
+                    
+                    if not polygon_is_valid:
+                        break
+                
+                # Update polygon validity
+                polygon_valid[poly_idx] = polygon_is_valid
+        
+        return tile_results
 
     def _merge_polygons(
         self,
@@ -355,63 +570,16 @@ class PolygonInference:
         
         # Fill bitmap with polygon regions
         for tile_idx, (tile_result, (x, y, x_end, y_end)) in enumerate(zip(tile_results, positions)):
+            log(f"tile_idx: {tile_idx}")
+                
             tile_polygons = tile_result["polygons"]
+            polygon_valid = tile_result["polygon_valid"]
             
-            # Check if polygon has any part in the central 50% of the tile
-            tile_width = x_end - x
-            tile_height = y_end - y
-            
-            # Define central region boundaries (25% to 75% in each dimension)
-            central_x_min = tile_width * 0.25
-            central_x_max = tile_width * 0.75
-            central_y_min = tile_height * 0.25
-            central_y_max = tile_height * 0.75
-            
-            # Create square polygon representing the central region
-            central_region_coords = [
-                (central_x_min, central_y_min),  # top-left
-                (central_x_max, central_y_min),  # top-right
-                (central_x_max, central_y_max),  # bottom-right
-                (central_x_min, central_y_max)   # bottom-left
-            ]
-            central_polygon = Polygon(central_region_coords)
-            
-            for poly_idx, poly in enumerate(tile_polygons):
-                if len(poly) < 3:  # Skip invalid polygons
+            for poly_idx, (poly, is_valid) in enumerate(zip(tile_polygons, polygon_valid)):
+                # Skip invalid polygons
+                if not is_valid:
                     continue
-                
-                # Use Shapely for precise polygon intersection detection
-                # Convert numpy arrays to tuples for Shapely
-                poly_coords = [(float(x), float(y)) for x, y in poly]
-                
-                # Create Shapely polygon for detected shape
-                detected_polygon = Polygon(poly_coords)
-                
-                # Check for intersection
-                has_intersection = detected_polygon.intersects(central_polygon)
-                
-                # Skip polygon if no intersection with central region
-                if not has_intersection:
-                    continue
-                
-                # Additional rule: Skip if polygon occupies two or more corners
-                corner_tolerance = 20.0  # Distance from corner to be considered "in corner"
-                
-                # Define corner regions
-                corners = [
-                    (poly[:, 0] <= corner_tolerance) & (poly[:, 1] <= corner_tolerance),  # top_left
-                    (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] <= corner_tolerance),  # top_right
-                    (poly[:, 0] <= corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance),  # bottom_left
-                    (poly[:, 0] >= tile_width - corner_tolerance) & (poly[:, 1] >= tile_height - corner_tolerance)  # bottom_right
-                ]
-                
-                # Count how many corners have any points
-                occupied_corners = sum(1 for corner_mask in corners if np.any(corner_mask))
-                
-                # Skip polygon if it occupies two or more corners
-                if occupied_corners >= 2:
-                    continue
-                
+                    
                 # Transform polygon from tile coordinates to image coordinates
                 transformed_poly = poly + np.array([x, y])
                 
@@ -424,7 +592,7 @@ class PolygonInference:
                 
                 # Convert to integer coordinates for rasterization
                 poly_coords = scaled_poly.astype(np.int32)
-                
+
                 # Fill the polygon region in the bitmap
                 cv2.fillPoly(bitmap, [poly_coords], 255)
         
@@ -534,6 +702,9 @@ class PolygonInference:
             
             batch_time = time.time() - batch_start_time
             log(f"Processed batch of {len(batch_tiles)} tiles: {batch_time/len(batch_tiles):.3f}s per tile")
+
+        # Validate all polygons and add validation attributes
+        all_results = self._validate_all_polygons(all_results, bboxes, height, width)
 
         # Create tile visualization
         self._create_tile_visualization(tiles, all_results, bboxes)
