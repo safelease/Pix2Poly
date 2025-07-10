@@ -826,26 +826,23 @@ class PolygonInference:
             shapely_polygon = Polygon(contour_points)
             shapely_polygons.append(shapely_polygon)
         
+        # Initialize merged_polygons to avoid NameError if no valid contours are found
+        merged_polygons: List[np.ndarray] = []
+        
         # Create single GeoDataFrame with all polygons and regularize them all at once
         if shapely_polygons:
             gdf = gpd.GeoDataFrame({'geometry': shapely_polygons})
             regularized_gdf = regularize_geodataframe(gdf, simplify_tolerance=20, parallel_threshold=100)
             
             # Process the regularized polygons
-            merged_polygons: List[np.ndarray] = []
-            
             for regularized_polygon in regularized_gdf.geometry:
                 # Convert back to numpy array for OpenCV format
                 coords = np.array(regularized_polygon.exterior.coords[:-1])  # Remove duplicate last point
-                simplified_contour = coords.reshape(-1, 1, 2).astype(np.int32)
                 
                 # Convert from OpenCV format to our polygon format
-                if len(simplified_contour) >= 3:  # Valid polygon needs at least 3 points
-                    # Reshape from (n, 1, 2) to (n, 2) and convert to float
-                    polygon_coords = simplified_contour.reshape(-1, 2).astype(np.float32)
-                    
+                if len(coords) >= 3:  # Valid polygon needs at least 3 points
                     # Scale down coordinates back to original image coordinate system
-                    polygon_coords = polygon_coords / scale_factor
+                    polygon_coords = coords.astype(np.float32) / scale_factor
                     
                     merged_polygons.append(polygon_coords)
         
