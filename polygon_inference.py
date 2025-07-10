@@ -12,6 +12,8 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from shapely.geometry import Polygon
+from buildingregulariser import regularize_geodataframe
+import geopandas as gpd
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -810,7 +812,8 @@ class PolygonInference:
         # Find contours in the bitmap
         contours, _ = cv2.findContours(bitmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        merged_polygons: List[np.ndarray] = []
+        # Collect all valid contours into shapely polygons
+        shapely_polygons = []
         
         for contour in contours:
             # Skip very small contours (area is scaled by scale_factor^2)
@@ -818,19 +821,33 @@ class PolygonInference:
             if area < CFG.MIN_POLYGON_AREA * (scale_factor ** 2):
                 continue
             
-            # Simplify the contour to reduce jaggedness while preserving shape
-            epsilon = 10
-            simplified_contour = cv2.approxPolyDP(contour, epsilon, True)
+            # Convert contour to Shapely Polygon
+            contour_points = contour.reshape(-1, 2).astype(np.float64)
+            shapely_polygon = Polygon(contour_points)
+            shapely_polygons.append(shapely_polygon)
+        
+        # Create single GeoDataFrame with all polygons and regularize them all at once
+        if shapely_polygons:
+            gdf = gpd.GeoDataFrame({'geometry': shapely_polygons})
+            regularized_gdf = regularize_geodataframe(gdf, simplify_tolerance=20, parallel_threshold=100)
             
-            # Convert from OpenCV format to our polygon format
-            if len(simplified_contour) >= 3:  # Valid polygon needs at least 3 points
-                # Reshape from (n, 1, 2) to (n, 2) and convert to float
-                polygon_coords = simplified_contour.reshape(-1, 2).astype(np.float32)
+            # Process the regularized polygons
+            merged_polygons: List[np.ndarray] = []
+            
+            for regularized_polygon in regularized_gdf.geometry:
+                # Convert back to numpy array for OpenCV format
+                coords = np.array(regularized_polygon.exterior.coords[:-1])  # Remove duplicate last point
+                simplified_contour = coords.reshape(-1, 1, 2).astype(np.int32)
                 
-                # Scale down coordinates back to original image coordinate system
-                polygon_coords = polygon_coords / scale_factor
-                
-                merged_polygons.append(polygon_coords)
+                # Convert from OpenCV format to our polygon format
+                if len(simplified_contour) >= 3:  # Valid polygon needs at least 3 points
+                    # Reshape from (n, 1, 2) to (n, 2) and convert to float
+                    polygon_coords = simplified_contour.reshape(-1, 2).astype(np.float32)
+                    
+                    # Scale down coordinates back to original image coordinate system
+                    polygon_coords = polygon_coords / scale_factor
+                    
+                    merged_polygons.append(polygon_coords)
         
         log(f"Bitmap approach: {len(merged_polygons)} polygons extracted from bitmap")
         return merged_polygons

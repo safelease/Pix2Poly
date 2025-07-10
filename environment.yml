@@ -7,9 +7,11 @@ dependencies:
   - python=3.11
   - timm=0.9.12
   - transformers=4.32.1
-  - pycocotools=2.0.6
+  - pycocotools>=2.0.6
   - torchmetrics=1.2.1
   - tensorboard=2.15.1
+  - buildingregulariser>=0.2.2
+  - geopandas=1.1.1
   - pip
   - pip:
     - torch==2.1.2
