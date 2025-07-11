@@ -170,6 +170,8 @@ async def invoke(
     request: Request,
     file: UploadFile = None,
     api_key: Optional[str] = Depends(verify_api_key),
+    merge_tolerance: Optional[float] = Query(None, description="Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)"),
+    tile_overlap_ratio: Optional[float] = Query(None, description="Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)"),
 ):
     """Main inference endpoint for processing images.
 
@@ -182,10 +184,16 @@ async def invoke(
     1. Via the X-API-Key header
     2. Via the api_key query parameter
 
+    Configuration parameters can be provided in two ways:
+    1. Via query parameters (merge_tolerance, tile_overlap_ratio)
+    2. Via the JSON payload fields (merge_tolerance, tile_overlap_ratio)
+
     Args:
         request: The request containing the image data
         file: Optional uploaded file (multipart/form-data)
         api_key: Optional API key for authentication (required only if API key is configured)
+        merge_tolerance: Optional tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
+        tile_overlap_ratio: Optional overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)
 
     Returns:
         JSON response containing the inferred polygons
@@ -197,6 +205,18 @@ async def invoke(
         HTTPException: 403 if API key is invalid (when API key is configured)
     """
     log(f"Invoking image analysis")
+
+    # Initialize configuration parameters and validate ranges
+    effective_merge_tolerance = merge_tolerance
+    effective_tile_overlap_ratio = tile_overlap_ratio
+    
+    # Validate merge_tolerance (should be positive)
+    if effective_merge_tolerance is not None and effective_merge_tolerance < 0:
+        raise HTTPException(status_code=400, detail="merge_tolerance must be non-negative")
+    
+    # Validate tile_overlap_ratio (should be between 0.0 and 1.0)
+    if effective_tile_overlap_ratio is not None and (effective_tile_overlap_ratio < 0.0 or effective_tile_overlap_ratio > 1.0):
+        raise HTTPException(status_code=400, detail="tile_overlap_ratio must be between 0.0 and 1.0")
 
     if file:
         # Handle file upload
@@ -211,6 +231,16 @@ async def invoke(
             if "image" in data:
                 # Handle base64 encoded image
                 image_data = base64.b64decode(data["image"])
+                
+                # Extract configuration parameters from JSON (if query params not provided)
+                if effective_merge_tolerance is None and "merge_tolerance" in data:
+                    effective_merge_tolerance = float(data["merge_tolerance"])
+                    if effective_merge_tolerance < 0:
+                        raise HTTPException(status_code=400, detail="merge_tolerance must be non-negative")
+                if effective_tile_overlap_ratio is None and "tile_overlap_ratio" in data:
+                    effective_tile_overlap_ratio = float(data["tile_overlap_ratio"])
+                    if effective_tile_overlap_ratio < 0.0 or effective_tile_overlap_ratio > 1.0:
+                        raise HTTPException(status_code=400, detail="tile_overlap_ratio must be between 0.0 and 1.0")
             else:
                 raise HTTPException(
                     status_code=400, detail="No image data found in request"
@@ -219,15 +249,16 @@ async def invoke(
             # Handle raw image data
             image_data = body
 
-    # Generate cache key and check cache
-    cache_key = get_cache_key(image_data)
+    # Generate cache key including configuration parameters
+    cache_key_base = get_cache_key(image_data)
+    cache_key = f"{cache_key_base}_{effective_merge_tolerance}_{effective_tile_overlap_ratio}"
     cached_result = cache.get(cache_key)
     
     if cached_result is not None:
         return JSONResponse(content=cached_result)
 
     # Get inferences
-    polygons = predictor.infer(image_data)
+    polygons = predictor.infer(image_data, merge_tolerance=effective_merge_tolerance, tile_overlap_ratio=effective_tile_overlap_ratio)
 
     # Prepare response
     response = {
