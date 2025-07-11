@@ -402,7 +402,8 @@ class PolygonInference:
         tile_results: List[Dict[str, List[np.ndarray]]], 
         positions: List[Tuple[int, int, int, int]], 
         image_height: int, 
-        image_width: int
+        image_width: int,
+        merge_tolerance: float
     ) -> List[Dict[str, List[np.ndarray]]]:
         """Validate all polygons in the tile results and add validation attributes.
         
@@ -414,6 +415,7 @@ class PolygonInference:
             positions (List[Tuple[int, int, int, int]]): List of (x, y, x_end, y_end) tuples for each tile's position
             image_height (int): Height of the original image
             image_width (int): Width of the original image
+            merge_tolerance (float): Tolerance for point-in-polygon tests during validation (in pixels)
             
         Returns:
             List[Dict[str, List[np.ndarray]]]: Updated tile results with validation attributes
@@ -599,7 +601,7 @@ class PolygonInference:
                 return False
             # Convert polygon to the format expected by cv2.pointPolygonTest
             poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
-            return cv2.pointPolygonTest(poly_points, point, True) >= -2
+            return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
         
         # Process each tile
         for tile_idx, (tile_result, tile_pos) in enumerate(zip(tile_results, positions)):
@@ -849,12 +851,14 @@ class PolygonInference:
         log(f"Bitmap approach: {len(merged_polygons)} polygons extracted from bitmap")
         return merged_polygons
 
-    def infer(self, image_data: bytes, debug: bool = False) -> List[List[List[float]]]:
+    def infer(self, image_data: bytes, debug: bool = False, merge_tolerance: Optional[float] = None, tile_overlap_ratio: Optional[float] = None) -> List[List[List[float]]]:
         """Infer polygons in an image.
 
         Args:
             image_data (bytes): Raw image data
             debug (bool): Whether to save debug images (tile visualization and bitmap)
+            merge_tolerance (Optional[float]): Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside). If None, uses CFG.MERGE_TOLERANCE
+            tile_overlap_ratio (Optional[float]): Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap). If None, uses CFG.TILE_OVERLAP_RATIO
 
         Returns:
             list[list[list[float]]]: List of polygons where each polygon is a list of [x,y] coordinates.
@@ -886,7 +890,11 @@ class PolygonInference:
         if height == 0 or width == 0:
             raise ValueError("Invalid image dimensions")
 
-        overlap_ratio = 0.5
+        # Use provided parameters or fall back to config defaults
+        effective_merge_tolerance = merge_tolerance if merge_tolerance is not None else CFG.MERGE_TOLERANCE
+        effective_tile_overlap_ratio = tile_overlap_ratio if tile_overlap_ratio is not None else CFG.TILE_OVERLAP_RATIO
+
+        overlap_ratio = effective_tile_overlap_ratio
 
         bboxes = calculate_slice_bboxes(
             image_height=height,
@@ -921,7 +929,7 @@ class PolygonInference:
             log(f"Processed batch of {len(batch_tiles)} tiles: {batch_time/len(batch_tiles):.3f}s per tile")
 
         # Validate all polygons and add validation attributes
-        all_results = self._validate_all_polygons(all_results, bboxes, height, width)
+        all_results = self._validate_all_polygons(all_results, bboxes, height, width, effective_merge_tolerance)
 
         # Create tile visualization
         if debug:

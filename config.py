@@ -74,6 +74,10 @@ class CFG:
     # Prediction configuration
     PREDICTION_BATCH_SIZE = 8  # Batch size for processing tiles during prediction
     
+    # Polygon validation configuration
+    MERGE_TOLERANCE = 2  # Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
+    TILE_OVERLAP_RATIO = 0.5  # Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)
+    
     BATCH_SIZE = 24  # batch size per gpu; effective batch size = BATCH_SIZE * NUM_GPUs
     START_EPOCH = 0
     NUM_EPOCHS = 500
