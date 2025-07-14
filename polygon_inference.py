@@ -12,6 +12,7 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from shapely.geometry import Polygon
+from shapely.validation import make_valid
 from buildingregulariser import regularize_geodataframe
 import geopandas as gpd
 
@@ -826,7 +827,12 @@ class PolygonInference:
             # Convert contour to Shapely Polygon
             contour_points = contour.reshape(-1, 2).astype(np.float64)
             shapely_polygon = Polygon(contour_points)
-            shapely_polygons.append(shapely_polygon)
+            
+            shapely_polygon = make_valid(shapely_polygon)
+            if shapely_polygon.is_valid:
+                shapely_polygons.append(shapely_polygon)
+            else:
+                log(f"Skipping invalid polygon")
         
         # Initialize merged_polygons to avoid NameError if no valid contours are found
         merged_polygons: List[np.ndarray] = []
