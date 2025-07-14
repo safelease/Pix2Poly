@@ -835,12 +835,10 @@ class PolygonInference:
                 if shapely_polygon.geom_type == 'MultiPolygon':
                     # Extract individual polygons from MultiPolygon
                     for individual_poly in shapely_polygon.geoms:
-                        # Only keep exterior ring (no holes)
                         simple_poly = Polygon(individual_poly.exterior.coords)
                         if simple_poly.is_valid and simple_poly.area > 0:
                             shapely_polygons.append(simple_poly)
                 elif shapely_polygon.geom_type == 'Polygon':
-                    # Only keep exterior ring (no holes)
                     simple_poly = Polygon(shapely_polygon.exterior.coords)
                     if simple_poly.is_valid and simple_poly.area > 0:
                         shapely_polygons.append(simple_poly)
@@ -849,7 +847,6 @@ class PolygonInference:
         
         # Initialize merged_polygons to avoid NameError if no valid contours are found
         merged_polygons: List[np.ndarray] = []
-        log(f"Shapely polygons: {shapely_polygons}")
         
         # Create single GeoDataFrame with all polygons and regularize them all at once
         if shapely_polygons:
