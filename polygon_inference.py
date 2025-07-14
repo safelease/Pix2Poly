@@ -829,8 +829,19 @@ class PolygonInference:
             shapely_polygon = Polygon(contour_points)
             
             shapely_polygon = make_valid(shapely_polygon)
+            
+            # Handle case where make_valid returns a MultiPolygon
             if shapely_polygon.is_valid:
-                shapely_polygons.append(shapely_polygon)
+                if shapely_polygon.geom_type == 'MultiPolygon':
+                    # Extract individual polygons from MultiPolygon
+                    for individual_poly in shapely_polygon.geoms:
+                        simple_poly = Polygon(individual_poly.exterior.coords)
+                        if simple_poly.is_valid and simple_poly.area > 0:
+                            shapely_polygons.append(simple_poly)
+                elif shapely_polygon.geom_type == 'Polygon':
+                    simple_poly = Polygon(shapely_polygon.exterior.coords)
+                    if simple_poly.is_valid and simple_poly.area > 0:
+                        shapely_polygons.append(simple_poly)
             else:
                 log(f"Skipping invalid polygon")
         
