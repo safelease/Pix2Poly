@@ -14,6 +14,7 @@ import requests
 import shutil
 from pathlib import Path
 from diskcache import Cache
+import re
 
 from polygon_inference import PolygonInference
 from utils import log
@@ -27,6 +28,9 @@ API_KEY = os.getenv("API_KEY")
 EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_224")
 MODEL_URL = os.getenv("MODEL_URL", "https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip")
 
+# Default model name extracted from EXPERIMENT_PATH
+DEFAULT_MODEL_NAME = os.path.basename(EXPERIMENT_PATH)
+
 # Cache configuration
 CACHE_TTL = int(os.getenv("CACHE_TTL", 24 * 3600))  # 24 hours
 
@@ -38,16 +42,33 @@ cache = Cache(
     disk_pickle_protocol=4,  # Use protocol 4 for better compatibility
 )
 
-def get_cache_key(image_data: bytes) -> str:
-    """Generate a cache key from image data.
+def get_cache_key(image_data: bytes, model_name: str = None, merge_tolerance: float = None, tile_overlap_ratio: float = None) -> str:
+    """Generate a cache key from image data and parameters.
     
     Args:
         image_data: Raw image data
+        model_name: Model name being used
+        merge_tolerance: Merge tolerance parameter
+        tile_overlap_ratio: Tile overlap ratio parameter
         
     Returns:
-        SHA-256 hash of the image data as a string
+        SHA-256 hash of the image data combined with parameters as a string
     """
-    return hashlib.sha256(image_data).hexdigest()
+    image_hash = hashlib.sha256(image_data).hexdigest()
+    return f"{image_hash}_{model_name}_{merge_tolerance}_{tile_overlap_ratio}"
+
+
+def validate_model_name(model_name: str) -> bool:
+    """Validate that the model name contains only safe characters.
+    
+    Args:
+        model_name: The model name to validate
+        
+    Returns:
+        True if the model name is valid, False otherwise
+    """
+    # Allow alphanumeric characters, underscores, and hyphens
+    return bool(re.match(r'^[a-zA-Z0-9_-]+$', model_name))
 
 
 async def verify_api_key(
@@ -127,14 +148,16 @@ def download_model_files(model_url: str, target_dir: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize the predictor on startup."""
+    global model_dir
+    
     # Download model files to a temporary directory
     model_dir = download_model_files(
         MODEL_URL,
         "/tmp/pix2poly_model",
     )
 
-    # Initialize predictor with downloaded model
-    init_predictor(os.path.join(model_dir, EXPERIMENT_PATH))
+    # Initialize predictor with downloaded model using the default model name
+    init_predictor(os.path.join(model_dir, EXPERIMENT_PATH), DEFAULT_MODEL_NAME)
     yield
 
 
@@ -154,15 +177,48 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Global predictor instance
+# Global predictor instance and current model tracking
 predictor = None
+current_model_name = None
+model_dir = None
 
 
-def init_predictor(experiment_path: str):
+def init_predictor(experiment_path: str, model_name: str = None):
     """Initialize the global predictor instance."""
-    global predictor
-    if predictor is None:
+    global predictor, current_model_name
+    if predictor is None or current_model_name != model_name:
         predictor = PolygonInference(experiment_path)
+        current_model_name = model_name
+        log(f"Loaded model: {model_name}", "INFO")
+
+
+def load_model(model_name: str):
+    """Load a specific model by name.
+    
+    Args:
+        model_name: The name of the model to load (e.g., "Pix2Poly_inria_coco_224")
+        
+    Raises:
+        HTTPException: If model name is invalid or model files don't exist
+    """
+    global predictor, current_model_name, model_dir
+    
+    if not validate_model_name(model_name):
+        raise HTTPException(status_code=400, detail="Invalid model name. Only alphanumeric characters, underscores, and hyphens are allowed.")
+    
+    # Skip reloading if it's the same model
+    if current_model_name == model_name and predictor is not None:
+        return
+    
+    # Construct the full experiment path
+    experiment_path = os.path.join(model_dir, "runs_share", model_name)
+    
+    # Check if the model directory exists
+    if not os.path.exists(experiment_path):
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found in downloaded model files")
+    
+    # Initialize the predictor with the new model
+    init_predictor(experiment_path, model_name)
 
 
 @app.post("/invocations")
@@ -172,6 +228,7 @@ async def invoke(
     api_key: Optional[str] = Depends(verify_api_key),
     merge_tolerance: Optional[float] = Query(None, description="Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)"),
     tile_overlap_ratio: Optional[float] = Query(None, description="Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)"),
+    model_name: Optional[str] = Query(None, description="Name of the model to use (e.g., 'Pix2Poly_inria_coco_224')"),
 ):
     """Main inference endpoint for processing images.
 
@@ -185,8 +242,8 @@ async def invoke(
     2. Via the api_key query parameter
 
     Configuration parameters can be provided in two ways:
-    1. Via query parameters (merge_tolerance, tile_overlap_ratio)
-    2. Via the JSON payload fields (merge_tolerance, tile_overlap_ratio)
+    1. Via query parameters (merge_tolerance, tile_overlap_ratio, model_name)
+    2. Via the JSON payload fields (merge_tolerance, tile_overlap_ratio, model_name)
 
     Args:
         request: The request containing the image data
@@ -194,12 +251,14 @@ async def invoke(
         api_key: Optional API key for authentication (required only if API key is configured)
         merge_tolerance: Optional tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
         tile_overlap_ratio: Optional overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)
+        model_name: Optional name of the model to use (e.g., 'Pix2Poly_inria_coco_224')
 
     Returns:
         JSON response containing the inferred polygons
 
     Raises:
         HTTPException: 400 if no image data is found in the request
+        HTTPException: 404 if the specified model is not found
         HTTPException: 500 if there is an error processing the image
         HTTPException: 401 if API key is missing (when API key is configured)
         HTTPException: 403 if API key is invalid (when API key is configured)
@@ -209,6 +268,7 @@ async def invoke(
     # Initialize configuration parameters and validate ranges
     effective_merge_tolerance = merge_tolerance
     effective_tile_overlap_ratio = tile_overlap_ratio
+    effective_model_name = model_name or DEFAULT_MODEL_NAME
     
     # Validate merge_tolerance (should be positive)
     if effective_merge_tolerance is not None and effective_merge_tolerance < 0:
@@ -241,6 +301,8 @@ async def invoke(
                     effective_tile_overlap_ratio = float(data["tile_overlap_ratio"])
                     if effective_tile_overlap_ratio < 0.0 or effective_tile_overlap_ratio > 1.0:
                         raise HTTPException(status_code=400, detail="tile_overlap_ratio must be between 0.0 and 1.0")
+                if model_name is None and "model_name" in data:
+                    effective_model_name = str(data["model_name"])
             else:
                 raise HTTPException(
                     status_code=400, detail="No image data found in request"
@@ -249,9 +311,11 @@ async def invoke(
             # Handle raw image data
             image_data = body
 
-    # Generate cache key including configuration parameters
-    cache_key_base = get_cache_key(image_data)
-    cache_key = f"{cache_key_base}_{effective_merge_tolerance}_{effective_tile_overlap_ratio}"
+    # Load the requested model (this will only reload if it's different from the current model)
+    load_model(effective_model_name)
+
+    # Generate cache key including all configuration parameters
+    cache_key = get_cache_key(image_data, effective_model_name, effective_merge_tolerance, effective_tile_overlap_ratio)
     cached_result = cache.get(cache_key)
     
     if cached_result is not None:
@@ -263,6 +327,7 @@ async def invoke(
     # Prepare response
     response = {
         "polygons": polygons,
+        "model_name": effective_model_name,
     }
 
     # Store result in cache
@@ -275,7 +340,7 @@ async def ping(api_key: Optional[str] = Depends(verify_api_key)):
     """Health check endpoint to verify service status."""
     if predictor is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    return {"status": "healthy"}
+    return {"status": "healthy", "current_model": current_model_name}
 
 
 @app.get("/clear-cache")
