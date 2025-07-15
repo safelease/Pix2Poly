@@ -3,12 +3,14 @@ import os
 import time
 import hashlib
 import pickle
+import copy
 from typing import List, Tuple, Dict, Optional, Any
 
 # Third-party imports
 import numpy as np
 import cv2
 import torch
+import torch.nn.functional as F
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from shapely.geometry import Polygon
@@ -121,41 +123,73 @@ class PolygonInference:
         """Initialize the model and tokenizer.
 
         This method:
-        1. Creates a new tokenizer instance
-        2. Initializes the encoder-decoder model
-        3. Loads the latest checkpoint from the experiment directory
+        1. Loads the checkpoint to inspect the saved model configuration
+        2. Dynamically adapts the configuration to match the checkpoint
+        3. Creates a new tokenizer instance
+        4. Initializes the encoder-decoder model with the correct architecture
+        5. Loads the checkpoint weights
         """
-        self.tokenizer = Tokenizer(
-            num_classes=1,
-            num_bins=CFG.NUM_BINS,
-            width=CFG.INPUT_WIDTH,
-            height=CFG.INPUT_HEIGHT,
-            max_len=CFG.MAX_LEN,
-        )
-        CFG.PAD_IDX = self.tokenizer.PAD_code
-
-        encoder = Encoder(model_name=CFG.MODEL_NAME, pretrained=True, out_dim=256)
-        decoder = Decoder(
-            cfg=CFG,
-            vocab_size=self.tokenizer.vocab_size,
-            encoder_len=CFG.NUM_PATCHES,
-            dim=256,
-            num_heads=8,
-            num_layers=6,
-        )
-        self.model = EncoderDecoder(cfg=CFG, encoder=encoder, decoder=decoder)
-        self.model.to(self.device)
-        self.model.eval()
-
-        # Load latest checkpoint
+        # Load checkpoint first to inspect saved model configuration
         latest_checkpoint = self._find_single_checkpoint()
         checkpoint_path = os.path.join(
             self.experiment_path, "logs", "checkpoints", latest_checkpoint
         )
-        log(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+        
+        # Create a copy of CFG for model creation
+        model_cfg = copy.deepcopy(CFG)
+        
+        # Dynamically determine configuration from the saved positional embeddings
+        decoder_pos_embed_key = "decoder.decoder_pos_embed"
+        encoder_pos_embed_key = "decoder.encoder_pos_embed"
+        
+        if decoder_pos_embed_key in checkpoint["state_dict"]:
+            saved_decoder_pos_embed_shape = checkpoint["state_dict"][decoder_pos_embed_key].shape
+            checkpoint_max_len_minus_1 = saved_decoder_pos_embed_shape[1]  # Shape is [1, MAX_LEN-1, embed_dim]
+            checkpoint_max_len = checkpoint_max_len_minus_1 + 1
+            checkpoint_n_vertices = (checkpoint_max_len - 2) // 2  # Reverse: MAX_LEN = (N_VERTICES*2) + 2
+            
+            if checkpoint_n_vertices != CFG.N_VERTICES:
+                model_cfg.N_VERTICES = checkpoint_n_vertices
+                model_cfg.MAX_LEN = checkpoint_max_len
+        
+        if encoder_pos_embed_key in checkpoint["state_dict"]:
+            saved_encoder_pos_embed_shape = checkpoint["state_dict"][encoder_pos_embed_key].shape
+            checkpoint_num_patches = saved_encoder_pos_embed_shape[1]  # Shape is [1, num_patches, embed_dim]
+            
+            if checkpoint_num_patches != CFG.NUM_PATCHES:
+                model_cfg.NUM_PATCHES = checkpoint_num_patches
+
+        # Create tokenizer with the adapted configuration
+        self.tokenizer = Tokenizer(
+            num_classes=1,
+            num_bins=model_cfg.NUM_BINS,
+            width=model_cfg.INPUT_WIDTH,
+            height=model_cfg.INPUT_HEIGHT,
+            max_len=model_cfg.MAX_LEN,
+        )
+        # Use the original CFG for PAD_IDX to maintain compatibility
+        CFG.PAD_IDX = self.tokenizer.PAD_code
+
+        # Create model with the adapted configuration
+        encoder = Encoder(model_name=model_cfg.MODEL_NAME, pretrained=True, out_dim=256)
+        decoder = Decoder(
+            cfg=model_cfg,  # Use adapted configuration
+            vocab_size=self.tokenizer.vocab_size,
+            encoder_len=model_cfg.NUM_PATCHES,
+            dim=256,
+            num_heads=8,
+            num_layers=6,
+        )
+        self.model = EncoderDecoder(cfg=model_cfg, encoder=encoder, decoder=decoder)
+        self.model.to(self.device)
+        self.model.eval()
+        
+        # Store the adapted configuration for inference
+        self.model_cfg = model_cfg
+
+        # Load checkpoint weights - should now match perfectly
         self.model.load_state_dict(checkpoint["state_dict"])
-        log("Checkpoint loaded successfully")
 
     def _find_single_checkpoint(self) -> str:
         """Find the single checkpoint file. Crashes if there is more than one checkpoint.
@@ -231,11 +265,13 @@ class PolygonInference:
         batch_tensor = torch.stack(transformed_tiles).to(self.device)
 
         with torch.no_grad():
+            # Use adapted configuration for generation
+            adapted_generation_steps = (self.model_cfg.N_VERTICES * 2) + 1
             batch_preds, batch_confs, perm_preds = test_generate(
                 self.model,
                 batch_tensor,
                 self.tokenizer,
-                max_len=CFG.generation_steps,
+                max_len=adapted_generation_steps,
                 top_k=0,
                 top_p=1,
             )
@@ -249,7 +285,7 @@ class PolygonInference:
                 else:
                     coord = torch.tensor([])
 
-                padd = torch.ones((CFG.N_VERTICES - len(coord), 2)).fill_(CFG.PAD_IDX)
+                padd = torch.ones((self.model_cfg.N_VERTICES - len(coord), 2)).fill_(CFG.PAD_IDX)
                 coord = torch.cat([coord, padd], dim=0)
 
                 batch_polygons = permutations_to_polygons(
