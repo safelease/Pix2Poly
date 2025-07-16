@@ -201,6 +201,8 @@ def load_model(model_name: str):
         HTTPException: If model name is invalid or model files don't exist
     """
     global predictor, current_model_name, model_dir
+
+    log(f"Using model: {model_name}")
     
     if not validate_model_name(model_name):
         raise HTTPException(status_code=400, detail="Invalid model name. Only alphanumeric characters, underscores, and hyphens are allowed.")
