@@ -345,12 +345,10 @@ class PolygonInference:
             if cached_results is not None:
                 log(f"Cache hit for batch of {len(tiles)} tiles")
                 return cached_results
-
-            log(f"Cache miss for batch of {len(tiles)} tiles, processing...")
         else:
-            log(f"Processing batch of {len(tiles)} tiles (caching disabled)...")
             cache_key = None
         
+        log(f"Processing batch of {len(tiles)} tiles...")
         valid_transforms = A.Compose(
             [
                 A.Resize(height=CFG.INPUT_HEIGHT, width=CFG.INPUT_WIDTH),
@@ -848,7 +846,6 @@ class PolygonInference:
             else:
                 log(f"Skipping invalid polygon")
         
-        # Initialize merged_polygons to avoid NameError if no valid contours are found
         merged_polygons: List[np.ndarray] = []
         
         # Create single GeoDataFrame with all polygons and regularize them all at once
@@ -953,6 +950,8 @@ class PolygonInference:
 
         # Validate all polygons and add validation attributes
         all_results = self._validate_all_polygons(all_results, bboxes, height, width, effective_merge_tolerance)
+
+        log(f"Validated {sum(sum(tile_result['polygon_valid']) for tile_result in all_results)} out of {sum(len(tile_result['polygons']) for tile_result in all_results)} polygons") 
 
         # Create tile visualization
         if debug:
