@@ -34,15 +34,6 @@ from utils import (
 from models.model import Encoder, Decoder, EncoderDecoder
 
 
-def point_in_polygon(point, polygon, merge_tolerance):
-    """Check if a point is inside a polygon using OpenCV."""
-    if len(polygon) < 3:
-        return False
-    # Convert polygon to the format expected by cv2.pointPolygonTest
-    poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
-    return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
-
-
 class PolygonInference:
     def __init__(self, experiment_path: str, device: Optional[str] = None) -> None:
         """Initialize the polygon inference with a trained model.
