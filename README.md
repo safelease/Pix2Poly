@@ -237,7 +237,6 @@ Example with custom configuration:
 ```bash
 docker run -p 8080:8080 \
   -e MODEL_URL=https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip \
-  -e EXPERIMENT_PATH=runs_share/Pix2Poly_inria_coco_224 \
   -e API_KEY=your_secret_key \
   pix2poly
 ```
