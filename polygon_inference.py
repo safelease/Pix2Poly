@@ -784,9 +784,7 @@ class PolygonInference:
         # Create bitmap at 8x resolution for subpixel precision
         bitmap = np.zeros((image_height * scale_factor, image_width * scale_factor), dtype=np.uint8)
         
-        # Collect all valid polygons for batch processing
-        all_polygon_coords = []
-        
+        # Process all valid polygons and fill them immediately
         for tile_result, (x, y, x_end, y_end) in zip(tile_results, positions):
             tile_polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
@@ -811,11 +809,9 @@ class PolygonInference:
                 
                 # Convert to integer coordinates for rasterization
                 poly_coords = scaled_poly.astype(np.int32)
-                all_polygon_coords.append(poly_coords)
-        
-        # Fill all polygons at once - much more efficient than individual calls
-        if all_polygon_coords:
-            cv2.fillPoly(bitmap, all_polygon_coords, 255)
+                
+                # Fill polygon immediately to avoid winding order issues
+                cv2.fillPoly(bitmap, [poly_coords], 255)
         
         kernel_size = 32
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
