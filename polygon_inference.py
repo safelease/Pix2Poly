@@ -806,8 +806,8 @@ class PolygonInference:
         
         # Save bitmap for debugging (optional)
         if debug:
-            cv2.imwrite('debug_polygon_bitmap.png', bitmap)
-            log("Saved debug bitmap to debug_polygon_bitmap.png")
+            cv2.imwrite('visualization-bitmap.png', bitmap)
+            log("Saved debug bitmap to visualization-bitmap.png")
         
         # Find contours in the bitmap
         contours, _ = cv2.findContours(bitmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
