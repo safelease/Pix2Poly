@@ -489,16 +489,9 @@ class PolygonInference:
         Returns:
             List[Dict[str, List[np.ndarray]]]: Updated tile results with validation attributes
         """
-        log("Starting polygon validation process...")
-        
         # Initialize polygon_valid list for each tile
-        total_polygons = 0
-        for tile_idx, tile_result in enumerate(tile_results):
+        for tile_result in tile_results:
             tile_result["polygon_valid"] = [True] * len(tile_result["polygons"])
-            total_polygons += len(tile_result["polygons"])
-            log(f"Tile {tile_idx}: {len(tile_result['polygons'])} polygons to validate")
-        
-        log(f"Total polygons to validate: {total_polygons}")
         
         # Remove overlapping polygons within each tile (before edge validation)
         
@@ -533,15 +526,11 @@ class PolygonInference:
             except:
                 return 0
         
-        log("Phase 1: Removing overlapping polygons within each tile...")
-        overlap_removed_count = 0
-        
-        for tile_idx, tile_result in enumerate(tile_results):
+        for tile_result in tile_results:
             polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
             
             if len(polygons) <= 1:
-                log(f"Tile {tile_idx}: Skipping overlap check (≤1 polygon)")
                 continue  # Skip tiles with 0 or 1 polygon
             
             # Keep iterating until no overlaps are found
@@ -561,10 +550,8 @@ class PolygonInference:
                         
                         if check_polygon_overlap(poly1, poly2):
                             overlapping_pairs.append((idx1, idx2))
-                            log(f"Tile {tile_idx}: Overlap detected between polygon {idx1} and polygon {idx2}")
                 
                 if not overlapping_pairs:
-                    log(f"Tile {tile_idx}: No overlaps found, overlap validation complete")
                     break  # No overlaps found
                 
                 # Find all polygons involved in overlaps
@@ -584,21 +571,10 @@ class PolygonInference:
                 
                 # Mark the largest polygon as invalid
                 polygon_valid[largest_idx] = False
-                overlap_removed_count += 1
-                log(f"Tile {tile_idx}: Marking polygon {largest_idx} as INVALID (largest overlapping polygon, area={largest_area:.2f})")
-                
-                # Log areas of all overlapping polygons for context
-                for idx, area in polygon_areas:
-                    if idx != largest_idx:
-                        log(f"Tile {tile_idx}: Polygon {idx} (area={area:.2f}) remains valid")
                 
                 # Continue to next iteration to check for remaining overlaps
         
-        log(f"Phase 1 complete: {overlap_removed_count} polygons removed due to overlaps")
-        
         # Now perform edge validation on remaining valid polygons
-        log("Phase 2: Validating polygons with boundary edges...")
-        edge_rejected_count = 0
         
         def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
             """Check if an edge is colinear with the tile boundary within tolerance."""
@@ -673,7 +649,7 @@ class PolygonInference:
             return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
         
         # Process each tile
-        for tile_idx, (tile_result, tile_pos) in enumerate(zip(tile_results, positions)):
+        for tile_result, tile_pos in zip(tile_results, positions):
             x, y, x_end, y_end = tile_pos
             tile_width = x_end - x
             tile_height = y_end - y
@@ -682,19 +658,14 @@ class PolygonInference:
             polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
             
-            valid_polygons_count = sum(polygon_valid)
-            log(f"Tile {tile_idx}: Processing {valid_polygons_count} valid polygons for edge validation")
-            
             # Check each polygon in this tile (only those still valid after overlap removal)
             for poly_idx, polygon in enumerate(polygons):
                 # Skip polygons already rejected for overlap
                 if not polygon_valid[poly_idx]:
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}: SKIPPED (already invalid from overlap check)")
                     continue
                 
                 if len(polygon) < 3:
                     polygon_valid[poly_idx] = False
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}: INVALID (< 3 vertices)")
                     continue
                 
                 # Find edges that are near tile boundaries
@@ -708,10 +679,7 @@ class PolygonInference:
                 
                 # If no boundary edges, polygon is valid (not on tile boundary)
                 if not boundary_edges:
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}: VALID (no boundary edges)")
                     continue
-                
-                log(f"Tile {tile_idx}, Polygon {poly_idx}: Found {len(boundary_edges)} boundary edges, validating...")
                 
                 # Check sample points along boundary edges
                 polygon_is_valid = True
@@ -723,16 +691,12 @@ class PolygonInference:
                     is_horizontal_edge = abs(p1[1] - p2[1]) <= 2  # Edge is roughly horizontal
                     is_vertical_edge = abs(p1[0] - p2[0]) <= 2    # Edge is roughly vertical
                     
-                    edge_type = "horizontal" if is_horizontal_edge else "vertical" if is_vertical_edge else "diagonal"
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}, Edge {edge_idx}: {edge_type} edge with {len(sample_points)} sample points")
-                    
                     # Convert sample points to global image coordinates
                     global_sample_points = [(px + x, py + y) for px, py in sample_points]
                     
                     # Check if each sample point is contained in any polygon from other tiles
                     for point_idx, global_point in enumerate(global_sample_points):
                         point_found_in_other_polygon = False
-                        match_info = None
                         
                         # Check all other tiles
                         for other_tile_result, other_tile_pos in zip(tile_results, positions):
@@ -760,20 +724,6 @@ class PolygonInference:
                                 
                                 if point_in_polygon(local_point, other_polygon):
                                     point_found_in_other_polygon = True
-                                    # Store match location information for detailed logging
-                                    match_tile_idx = None
-                                    for search_tile_idx, (search_tile_result, search_tile_pos) in enumerate(zip(tile_results, positions)):
-                                        if search_tile_result is other_tile_result:
-                                            match_tile_idx = search_tile_idx
-                                            break
-                                    
-                                    match_info = {
-                                        'tile_idx': match_tile_idx,
-                                        'polygon_idx': other_poly_idx,
-                                        'tile_bounds': (other_x, other_y, other_x_end, other_y_end),
-                                        'local_point': local_point,
-                                        'global_point': global_point
-                                    }
                                     break
                             
                             if point_found_in_other_polygon:
@@ -782,37 +732,13 @@ class PolygonInference:
                         # If any sample point is not found in other polygons, mark as invalid
                         if not point_found_in_other_polygon:
                             polygon_is_valid = False
-                            log(f"Tile {tile_idx}, Polygon {poly_idx}: Sample point {point_idx} at {global_point} NOT found in other polygons")
                             break
-                        else:
-                            # Get the matched polygon points and convert to global coordinates
-                            matched_polygon = tile_results[match_info['tile_idx']]["polygons"][match_info['polygon_idx']]
-                            match_tile_bounds = match_info['tile_bounds']
-                            # Convert from local tile coordinates to global coordinates
-                            global_polygon_points = matched_polygon + np.array([match_tile_bounds[0], match_tile_bounds[1]])
-                            # Format points as list of [x, y] coordinates for logging
-                            polygon_points_str = '[' + ', '.join(f'[{x:.1f}, {y:.1f}]' for x, y in global_polygon_points) + ']'
-                            
-                            log(f"Tile {tile_idx}, Polygon {poly_idx}: Sample point {point_idx} at {global_point} found in "
-                                f"Tile {match_info['tile_idx']}, Polygon {match_info['polygon_idx']} "
-                                f"(polygon points: {polygon_points_str})")
                     
                     if not polygon_is_valid:
                         break
                 
                 # Update polygon validity
                 polygon_valid[poly_idx] = polygon_is_valid
-                
-                if polygon_is_valid:
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}: VALID (all boundary edge sample points found in other polygons)")
-                else:
-                    edge_rejected_count += 1
-                    log(f"Tile {tile_idx}, Polygon {poly_idx}: INVALID (boundary edge validation failed)")
-        
-        # Log final validation summary
-        final_valid_count = sum(sum(tile_result["polygon_valid"]) for tile_result in tile_results)
-        log(f"Phase 2 complete: {edge_rejected_count} polygons removed due to edge validation")
-        log(f"Validation summary: {final_valid_count}/{total_polygons} polygons remain valid")
         
         return tile_results
 
