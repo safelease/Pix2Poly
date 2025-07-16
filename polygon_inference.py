@@ -225,6 +225,14 @@ class PolygonInference:
         
         return points
 
+    def _point_in_polygon(self, point, polygon, merge_tolerance):
+        """Check if a point is inside a polygon using OpenCV."""
+        if len(polygon) < 3:
+            return False
+        # Convert polygon to the format expected by cv2.pointPolygonTest
+        poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
+        return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
+
     def _initialize_model(self) -> None:
         """Initialize the model and tokenizer.
 
@@ -735,7 +743,7 @@ class PolygonInference:
                                 if not other_tile_result["polygon_valid"][other_poly_idx]:
                                     continue
                                 
-                                if point_in_polygon(local_point, other_polygon, merge_tolerance):
+                                if self._point_in_polygon(local_point, other_polygon, merge_tolerance):
                                     point_found_in_other_polygon = True
                                     break
                             
