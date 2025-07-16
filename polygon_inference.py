@@ -36,6 +36,114 @@ from utils import (
 from models.model import Encoder, Decoder, EncoderDecoder
 
 
+def check_polygon_overlap(poly1, poly2):
+    """Check if two polygons overlap using Shapely."""
+    try:
+        # Convert numpy arrays to Shapely polygons
+        if len(poly1) < 3 or len(poly2) < 3:
+            return False
+        
+        shapely_poly1 = Polygon(poly1)
+        shapely_poly2 = Polygon(poly2)
+        
+        # Check if polygons are valid
+        if not shapely_poly1.is_valid or not shapely_poly2.is_valid:
+            return False
+        
+        # Check for intersection (but not just touching)
+        return shapely_poly1.intersects(shapely_poly2) and not shapely_poly1.touches(shapely_poly2)
+    except:
+        return False
+
+
+def calculate_polygon_area(poly):
+    """Calculate the area of a polygon."""
+    try:
+        if len(poly) < 3:
+            return 0
+        shapely_poly = Polygon(poly)
+        if not shapely_poly.is_valid:
+            return 0
+        return shapely_poly.area
+    except:
+        return 0
+
+
+def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
+    """Check if an edge is colinear with the tile boundary within tolerance."""
+    x_min, y_min, x_max, y_max = tile_bounds
+    x1, y1 = p1
+    x2, y2 = p2
+    
+    # Check if edge is roughly horizontal and colinear with top boundary
+    if (abs(y1 - y_min) <= tolerance and abs(y2 - y_min) <= tolerance and
+        abs(y1 - y2) <= tolerance):
+        return True
+    
+    # Check if edge is roughly horizontal and colinear with bottom boundary  
+    if (abs(y1 - y_max) <= tolerance and abs(y2 - y_max) <= tolerance and
+        abs(y1 - y2) <= tolerance):
+        return True
+    
+    # Check if edge is roughly vertical and colinear with left boundary
+    if (abs(x1 - x_min) <= tolerance and abs(x2 - x_min) <= tolerance and
+        abs(x1 - x2) <= tolerance):
+        return True
+    
+    # Check if edge is roughly vertical and colinear with right boundary
+    if (abs(x1 - x_max) <= tolerance and abs(x2 - x_max) <= tolerance and
+        abs(x1 - x2) <= tolerance):
+        return True
+    
+    return False
+
+
+def generate_edge_sample_points(p1, p2, num_points=10, margin_px=10):
+    """Generate equally spaced points along an edge, leaving a fixed margin at each end.
+    Always generates at least one point in the center of the line."""
+    # Calculate edge length
+    edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+    
+    # Always generate center point
+    center_x = p1[0] + 0.5 * (p2[0] - p1[0])
+    center_y = p1[1] + 0.5 * (p2[1] - p1[1])
+    
+    # If edge is too short to accommodate margins, return just the center point
+    if edge_length <= 2 * margin_px:
+        return [(center_x, center_y)]
+    
+    # Calculate t values for the start and end of the usable region
+    t_start = margin_px / edge_length
+    t_end = 1.0 - margin_px / edge_length
+    
+    points = []
+    
+    # If only one point requested, return center point
+    if num_points == 1:
+        return [(center_x, center_y)]
+    
+    # Generate points evenly spaced within the usable region
+    for i in range(num_points):
+        # Distribute points evenly within the usable region
+        t_local = i / (num_points - 1)
+        t = t_start + t_local * (t_end - t_start)
+        
+        x = p1[0] + t * (p2[0] - p1[0])
+        y = p1[1] + t * (p2[1] - p1[1])
+        points.append((x, y))
+    
+    return points
+
+
+def point_in_polygon(point, polygon, merge_tolerance):
+    """Check if a point is inside a polygon using OpenCV."""
+    if len(polygon) < 3:
+        return False
+    # Convert polygon to the format expected by cv2.pointPolygonTest
+    poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
+    return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
+
+
 class PolygonInference:
     def __init__(self, experiment_path: str, device: Optional[str] = None) -> None:
         """Initialize the polygon inference with a trained model.
@@ -495,37 +603,6 @@ class PolygonInference:
         
         # Remove overlapping polygons within each tile (before edge validation)
         
-        def check_polygon_overlap(poly1, poly2):
-            """Check if two polygons overlap using Shapely."""
-            try:
-                # Convert numpy arrays to Shapely polygons
-                if len(poly1) < 3 or len(poly2) < 3:
-                    return False
-                
-                shapely_poly1 = Polygon(poly1)
-                shapely_poly2 = Polygon(poly2)
-                
-                # Check if polygons are valid
-                if not shapely_poly1.is_valid or not shapely_poly2.is_valid:
-                    return False
-                
-                # Check for intersection (but not just touching)
-                return shapely_poly1.intersects(shapely_poly2) and not shapely_poly1.touches(shapely_poly2)
-            except:
-                return False
-
-        def calculate_polygon_area(poly):
-            """Calculate the area of a polygon."""
-            try:
-                if len(poly) < 3:
-                    return 0
-                shapely_poly = Polygon(poly)
-                if not shapely_poly.is_valid:
-                    return 0
-                return shapely_poly.area
-            except:
-                return 0
-        
         for tile_result in tile_results:
             polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
@@ -575,78 +652,6 @@ class PolygonInference:
                 # Continue to next iteration to check for remaining overlaps
         
         # Now perform edge validation on remaining valid polygons
-        
-        def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
-            """Check if an edge is colinear with the tile boundary within tolerance."""
-            x_min, y_min, x_max, y_max = tile_bounds
-            x1, y1 = p1
-            x2, y2 = p2
-            
-            # Check if edge is roughly horizontal and colinear with top boundary
-            if (abs(y1 - y_min) <= tolerance and abs(y2 - y_min) <= tolerance and
-                abs(y1 - y2) <= tolerance):
-                return True
-            
-            # Check if edge is roughly horizontal and colinear with bottom boundary  
-            if (abs(y1 - y_max) <= tolerance and abs(y2 - y_max) <= tolerance and
-                abs(y1 - y2) <= tolerance):
-                return True
-            
-            # Check if edge is roughly vertical and colinear with left boundary
-            if (abs(x1 - x_min) <= tolerance and abs(x2 - x_min) <= tolerance and
-                abs(x1 - x2) <= tolerance):
-                return True
-            
-            # Check if edge is roughly vertical and colinear with right boundary
-            if (abs(x1 - x_max) <= tolerance and abs(x2 - x_max) <= tolerance and
-                abs(x1 - x2) <= tolerance):
-                return True
-            
-            return False
-        
-        def generate_edge_sample_points(p1, p2, num_points=10, margin_px=10):
-            """Generate equally spaced points along an edge, leaving a fixed margin at each end.
-            Always generates at least one point in the center of the line."""
-            # Calculate edge length
-            edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-            
-            # Always generate center point
-            center_x = p1[0] + 0.5 * (p2[0] - p1[0])
-            center_y = p1[1] + 0.5 * (p2[1] - p1[1])
-            
-            # If edge is too short to accommodate margins, return just the center point
-            if edge_length <= 2 * margin_px:
-                return [(center_x, center_y)]
-            
-            # Calculate t values for the start and end of the usable region
-            t_start = margin_px / edge_length
-            t_end = 1.0 - margin_px / edge_length
-            
-            points = []
-            
-            # If only one point requested, return center point
-            if num_points == 1:
-                return [(center_x, center_y)]
-            
-            # Generate points evenly spaced within the usable region
-            for i in range(num_points):
-                # Distribute points evenly within the usable region
-                t_local = i / (num_points - 1)
-                t = t_start + t_local * (t_end - t_start)
-                
-                x = p1[0] + t * (p2[0] - p1[0])
-                y = p1[1] + t * (p2[1] - p1[1])
-                points.append((x, y))
-            
-            return points
-        
-        def point_in_polygon(point, polygon):
-            """Check if a point is inside a polygon using OpenCV."""
-            if len(polygon) < 3:
-                return False
-            # Convert polygon to the format expected by cv2.pointPolygonTest
-            poly_points = polygon.astype(np.float32).reshape((-1, 1, 2))
-            return cv2.pointPolygonTest(poly_points, point, True) >= -merge_tolerance
         
         # Process each tile
         for tile_result, tile_pos in zip(tile_results, positions):
@@ -722,7 +727,7 @@ class PolygonInference:
                                 if not other_tile_result["polygon_valid"][other_poly_idx]:
                                     continue
                                 
-                                if point_in_polygon(local_point, other_polygon):
+                                if point_in_polygon(local_point, other_polygon, merge_tolerance):
                                     point_found_in_other_polygon = True
                                     break
                             
