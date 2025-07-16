@@ -376,17 +376,49 @@ class PolygonInference:
             
             # Set up x-axis ticks and labels (global coordinates)
             x_range = x_end - x
-            x_step = max(1, x_range // 8)  # Show ~8 ticks across width
-            x_tick_positions = range(0, tile_width, max(1, tile_width // 8))
+            # Generate tick positions ensuring min and max are included
+            num_x_ticks = 8
+            if tile_width > 1:
+                x_tick_positions = [0]  # Always include minimum
+                if num_x_ticks > 2:
+                    # Add intermediate positions
+                    step = tile_width / (num_x_ticks - 1)
+                    for i in range(1, num_x_ticks - 1):
+                        x_tick_positions.append(int(i * step))
+                x_tick_positions.append(tile_width - 1)  # Always include maximum
+            else:
+                x_tick_positions = [0]
+            
+            # Calculate corresponding global coordinates
             x_global_coords = [x + pos * x_range // tile_width for pos in x_tick_positions]
+            # Ensure the last coordinate is exactly x_end
+            if len(x_global_coords) > 1:
+                x_global_coords[-1] = x_end
+            
             ax.set_xticks(x_tick_positions)
             ax.set_xticklabels([str(coord) for coord in x_global_coords], fontsize=8)
             
             # Set up y-axis ticks and labels (global coordinates)
             y_range = y_end - y
-            y_step = max(1, y_range // 8)  # Show ~8 ticks across height
-            y_tick_positions = range(0, tile_height, max(1, tile_height // 8))
+            # Generate tick positions ensuring min and max are included
+            num_y_ticks = 8
+            if tile_height > 1:
+                y_tick_positions = [0]  # Always include minimum
+                if num_y_ticks > 2:
+                    # Add intermediate positions
+                    step = tile_height / (num_y_ticks - 1)
+                    for i in range(1, num_y_ticks - 1):
+                        y_tick_positions.append(int(i * step))
+                y_tick_positions.append(tile_height - 1)  # Always include maximum
+            else:
+                y_tick_positions = [0]
+            
+            # Calculate corresponding global coordinates
             y_global_coords = [y + pos * y_range // tile_height for pos in y_tick_positions]
+            # Ensure the last coordinate is exactly y_end
+            if len(y_global_coords) > 1:
+                y_global_coords[-1] = y_end
+            
             ax.set_yticks(y_tick_positions)
             ax.set_yticklabels([str(coord) for coord in y_global_coords], fontsize=8)
             
