@@ -63,6 +63,8 @@ def main():
     plt.savefig(output_path, dpi=100, bbox_inches='tight', pad_inches=0)
     plt.close()
 
+    log(f"Saved main visualization to {output_path}")
+
     # Print polygons to stdout
     print(json.dumps(polygons_list))
 
