@@ -231,7 +231,6 @@ The API returns JSON with the detected polygons:
 You can customize the Docker container behavior with these environment variables:
 
 - `MODEL_URL`: URL to download the pretrained model files (default: `https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip`)
-- `EXPERIMENT_PATH`: Path to the experiment folder (default: `runs_share/Pix2Poly_inria_coco_224`)
 - `API_KEY`: Optional API key for authentication (if not set, authentication is disabled)
 
 Example with custom configuration:
