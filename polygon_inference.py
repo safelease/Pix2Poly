@@ -34,105 +34,6 @@ from utils import (
 from models.model import Encoder, Decoder, EncoderDecoder
 
 
-def check_polygon_overlap(poly1, poly2):
-    """Check if two polygons overlap using Shapely."""
-    try:
-        # Convert numpy arrays to Shapely polygons
-        if len(poly1) < 3 or len(poly2) < 3:
-            return False
-        
-        shapely_poly1 = Polygon(poly1)
-        shapely_poly2 = Polygon(poly2)
-        
-        # Check if polygons are valid
-        if not shapely_poly1.is_valid or not shapely_poly2.is_valid:
-            return False
-        
-        # Check for intersection (but not just touching)
-        return shapely_poly1.intersects(shapely_poly2) and not shapely_poly1.touches(shapely_poly2)
-    except:
-        return False
-
-
-def calculate_polygon_area(poly):
-    """Calculate the area of a polygon."""
-    try:
-        if len(poly) < 3:
-            return 0
-        shapely_poly = Polygon(poly)
-        if not shapely_poly.is_valid:
-            return 0
-        return shapely_poly.area
-    except:
-        return 0
-
-
-def is_edge_near_tile_boundary(p1, p2, tile_bounds, tolerance=2):
-    """Check if an edge is colinear with the tile boundary within tolerance."""
-    x_min, y_min, x_max, y_max = tile_bounds
-    x1, y1 = p1
-    x2, y2 = p2
-    
-    # Check if edge is roughly horizontal and colinear with top boundary
-    if (abs(y1 - y_min) <= tolerance and abs(y2 - y_min) <= tolerance and
-        abs(y1 - y2) <= tolerance):
-        return True
-    
-    # Check if edge is roughly horizontal and colinear with bottom boundary  
-    if (abs(y1 - y_max) <= tolerance and abs(y2 - y_max) <= tolerance and
-        abs(y1 - y2) <= tolerance):
-        return True
-    
-    # Check if edge is roughly vertical and colinear with left boundary
-    if (abs(x1 - x_min) <= tolerance and abs(x2 - x_min) <= tolerance and
-        abs(x1 - x2) <= tolerance):
-        return True
-    
-    # Check if edge is roughly vertical and colinear with right boundary
-    if (abs(x1 - x_max) <= tolerance and abs(x2 - x_max) <= tolerance and
-        abs(x1 - x2) <= tolerance):
-        return True
-    
-    return False
-
-
-def generate_edge_sample_points(p1, p2, num_points=10, margin_px=10):
-    """Generate equally spaced points along an edge, leaving a fixed margin at each end.
-    Always generates at least one point in the center of the line."""
-    # Calculate edge length
-    edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-    
-    # Always generate center point
-    center_x = p1[0] + 0.5 * (p2[0] - p1[0])
-    center_y = p1[1] + 0.5 * (p2[1] - p1[1])
-    
-    # If edge is too short to accommodate margins, return just the center point
-    if edge_length <= 2 * margin_px:
-        return [(center_x, center_y)]
-    
-    # Calculate t values for the start and end of the usable region
-    t_start = margin_px / edge_length
-    t_end = 1.0 - margin_px / edge_length
-    
-    points = []
-    
-    # If only one point requested, return center point
-    if num_points == 1:
-        return [(center_x, center_y)]
-    
-    # Generate points evenly spaced within the usable region
-    for i in range(num_points):
-        # Distribute points evenly within the usable region
-        t_local = i / (num_points - 1)
-        t = t_start + t_local * (t_end - t_start)
-        
-        x = p1[0] + t * (p2[0] - p1[0])
-        y = p1[1] + t * (p2[1] - p1[1])
-        points.append((x, y))
-    
-    return points
-
-
 def point_in_polygon(point, polygon, merge_tolerance):
     """Check if a point is inside a polygon using OpenCV."""
     if len(polygon) < 3:
@@ -155,6 +56,8 @@ class PolygonInference:
         self.model: Optional[EncoderDecoder] = None
         self.tokenizer: Optional[Tokenizer] = None
         self.cache_dir: str = "/tmp/pix2poly_cache"
+        # Extract descriptive model name from experiment path (e.g., "Pix2Poly_inria_coco_224")
+        self.model_display_name: str = os.path.basename(self.experiment_path)
         self._ensure_cache_dir()
         self._initialize_model()
 
@@ -163,7 +66,7 @@ class PolygonInference:
         os.makedirs(self.cache_dir, exist_ok=True)
 
     def _generate_cache_key(self, tiles: List[np.ndarray]) -> str:
-        """Generate a cache key based on the input tiles.
+        """Generate a cache key based on the input tiles and model.
         
         Args:
             tiles (List[np.ndarray]): List of tile images
@@ -171,8 +74,10 @@ class PolygonInference:
         Returns:
             str: Hash-based cache key
         """
-        # Create a hash based on all tile data
+        # Create a hash based on all tile data and model identifier
         hasher = hashlib.sha256()
+        # Include model experiment path to make cache model-specific
+        hasher.update(self.experiment_path.encode('utf-8'))
         for tile in tiles:
             hasher.update(tile.tobytes())
         return hasher.hexdigest()
@@ -224,6 +129,101 @@ class PolygonInference:
                 pickle.dump(results, f)
         except Exception as e:
             log(f"Failed to save cache to {cache_path}: {e}")
+
+    def _check_polygon_overlap(self, poly1, poly2):
+        """Check if two polygons overlap using Shapely."""
+        try:
+            # Convert numpy arrays to Shapely polygons
+            if len(poly1) < 3 or len(poly2) < 3:
+                return False
+            
+            shapely_poly1 = Polygon(poly1)
+            shapely_poly2 = Polygon(poly2)
+            
+            # Check if polygons are valid
+            if not shapely_poly1.is_valid or not shapely_poly2.is_valid:
+                return False
+            
+            # Check for intersection (but not just touching)
+            return shapely_poly1.intersects(shapely_poly2) and not shapely_poly1.touches(shapely_poly2)
+        except:
+            return False
+
+    def _calculate_polygon_area(self, poly):
+        """Calculate the area of a polygon."""
+        try:
+            if len(poly) < 3:
+                return 0
+            shapely_poly = Polygon(poly)
+            if not shapely_poly.is_valid:
+                return 0
+            return shapely_poly.area
+        except:
+            return 0
+
+    def _is_edge_near_tile_boundary(self, p1, p2, tile_bounds, tolerance=2):
+        """Check if an edge is colinear with the tile boundary within tolerance."""
+        x_min, y_min, x_max, y_max = tile_bounds
+        x1, y1 = p1
+        x2, y2 = p2
+        
+        # Check if edge is roughly horizontal and colinear with top boundary
+        if (abs(y1 - y_min) <= tolerance and abs(y2 - y_min) <= tolerance and
+            abs(y1 - y2) <= tolerance):
+            return True
+        
+        # Check if edge is roughly horizontal and colinear with bottom boundary  
+        if (abs(y1 - y_max) <= tolerance and abs(y2 - y_max) <= tolerance and
+            abs(y1 - y2) <= tolerance):
+            return True
+        
+        # Check if edge is roughly vertical and colinear with left boundary
+        if (abs(x1 - x_min) <= tolerance and abs(x2 - x_min) <= tolerance and
+            abs(x1 - x2) <= tolerance):
+            return True
+        
+        # Check if edge is roughly vertical and colinear with right boundary
+        if (abs(x1 - x_max) <= tolerance and abs(x2 - x_max) <= tolerance and
+            abs(x1 - x2) <= tolerance):
+            return True
+        
+        return False
+
+    def _generate_edge_sample_points(self, p1, p2, num_points=10, margin_px=10):
+        """Generate equally spaced points along an edge, leaving a fixed margin at each end.
+        Always generates at least one point in the center of the line."""
+        # Calculate edge length
+        edge_length = math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+        
+        # Always generate center point
+        center_x = p1[0] + 0.5 * (p2[0] - p1[0])
+        center_y = p1[1] + 0.5 * (p2[1] - p1[1])
+        
+        # If edge is too short to accommodate margins, return just the center point
+        if edge_length <= 2 * margin_px:
+            return [(center_x, center_y)]
+        
+        # Calculate t values for the start and end of the usable region
+        t_start = margin_px / edge_length
+        t_end = 1.0 - margin_px / edge_length
+        
+        points = []
+        
+        # If only one point requested, return center point
+        if num_points == 1:
+            return [(center_x, center_y)]
+        
+        # Generate points evenly spaced within the usable region
+        for i in range(num_points):
+            # Distribute points evenly within the usable region
+            t_local = i / (num_points - 1)
+            t = t_start + t_local * (t_end - t_start)
+            
+            x = p1[0] + t * (p2[0] - p1[0])
+            y = p1[1] + t * (p2[1] - p1[1])
+            points.append((x, y))
+        
+        return points
 
     def _initialize_model(self) -> None:
         """Initialize the model and tokenizer.
@@ -567,7 +567,13 @@ class PolygonInference:
                            ha='center', va='center', zorder=6,
                            bbox=dict(boxstyle='round,pad=0.3', facecolor=outline_color, alpha=0.7))
 
-        plt.tight_layout()
+        # Leave space at the bottom for the model name
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
+        
+        # Add model name at the bottom of the visualization
+        plt.figtext(0.5, 0.01, f'Model: {self.model_display_name}', 
+                   ha='center', va='bottom')
+        
         plt.savefig('tile-visualization.png', dpi=150, bbox_inches='tight')
         plt.close()
         log(f"Saved tile visualization to tile-visualization.png")
@@ -623,7 +629,7 @@ class PolygonInference:
                         idx1, poly1 = valid_polygons[i]
                         idx2, poly2 = valid_polygons[j]
                         
-                        if check_polygon_overlap(poly1, poly2):
+                        if self._check_polygon_overlap(poly1, poly2):
                             overlapping_pairs.append((idx1, idx2))
                 
                 if not overlapping_pairs:
@@ -638,7 +644,7 @@ class PolygonInference:
                 # Calculate areas for overlapping polygons
                 polygon_areas = []
                 for idx in overlapping_indices:
-                    area = calculate_polygon_area(polygons[idx])
+                    area = self._calculate_polygon_area(polygons[idx])
                     polygon_areas.append((idx, area))
                 
                 # Find the largest polygon
@@ -677,7 +683,7 @@ class PolygonInference:
                     p1 = polygon[i]
                     p2 = polygon[i + 1]
                     
-                    if is_edge_near_tile_boundary(p1, p2, tile_bounds):
+                    if self._is_edge_near_tile_boundary(p1, p2, tile_bounds):
                         boundary_edges.append((p1, p2))
                 
                 # If no boundary edges, polygon is valid (not on tile boundary)
@@ -688,7 +694,7 @@ class PolygonInference:
                 polygon_is_valid = True
                 
                 for p1, p2 in boundary_edges:
-                    sample_points = generate_edge_sample_points(p1, p2)
+                    sample_points = self._generate_edge_sample_points(p1, p2)
                     
                     # Determine if this edge is horizontal or vertical
                     is_horizontal_edge = abs(p1[1] - p2[1]) <= 2  # Edge is roughly horizontal
@@ -806,8 +812,8 @@ class PolygonInference:
         
         # Save bitmap for debugging (optional)
         if debug:
-            cv2.imwrite('visualization-bitmap.png', bitmap)
-            log("Saved debug bitmap to visualization-bitmap.png")
+            cv2.imwrite('bitmap-visualization.png', bitmap)
+            log("Saved debug bitmap to bitmap-visualization.png")
         
         # Find contours in the bitmap
         contours, _ = cv2.findContours(bitmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -847,6 +853,7 @@ class PolygonInference:
         
         # Create single GeoDataFrame with all polygons and regularize them all at once
         if shapely_polygons:
+            log(f"Regularizing {len(shapely_polygons)} polygons")
             gdf = gpd.GeoDataFrame({'geometry': shapely_polygons})
             regularized_gdf = regularize_geodataframe(gdf, simplify_tolerance=20, parallel_threshold=100)
             
@@ -862,7 +869,7 @@ class PolygonInference:
                     
                     merged_polygons.append(polygon_coords)
         
-        log(f"Bitmap approach: {len(merged_polygons)} polygons extracted from bitmap")
+        log(f"Polygons extracted: {len(merged_polygons)}")
         return merged_polygons
 
     def infer(self, image_data: bytes, debug: bool = False, merge_tolerance: Optional[float] = None, tile_overlap_ratio: Optional[float] = None) -> List[List[List[float]]]:
@@ -940,7 +947,9 @@ class PolygonInference:
             all_results.extend(batch_results)
             
             batch_time = time.time() - batch_start_time
-            log(f"Processed batch of {len(batch_tiles)} tiles: {batch_time/len(batch_tiles):.3f}s per tile")
+            tiles_processed_so_far = i + len(batch_tiles)
+            total_tiles = len(tiles)
+            log(f"Processed batch of {len(batch_tiles)} tiles ({tiles_processed_so_far}/{total_tiles}): {batch_time/len(batch_tiles):.3f}s per tile")
 
         # Validate all polygons and add validation attributes
         all_results = self._validate_all_polygons(all_results, bboxes, height, width, effective_merge_tolerance)
