@@ -952,15 +952,24 @@ class PolygonInference:
             
             # Process the regularized polygons
             for regularized_polygon in regularized_gdf.geometry:
-                # Convert back to numpy array for OpenCV format
-                coords: npt.NDArray[np.floating[Any]] = np.array(regularized_polygon.exterior.coords[:-1])  # Remove duplicate last point
+                # Extract individual polygons (either from MultiPolygon or single Polygon)
+                individual_polygons = []
+                if regularized_polygon.geom_type == 'MultiPolygon':
+                    individual_polygons = list(regularized_polygon.geoms)
+                elif regularized_polygon.geom_type == 'Polygon':
+                    individual_polygons = [regularized_polygon]
                 
-                # Convert from OpenCV format to our polygon format
-                if len(coords) >= 3:  # Valid polygon needs at least 3 points
-                    # Scale down coordinates back to original image coordinate system
-                    polygon_coords: PolygonArray = coords.astype(np.float32) / scale_factor
-                    
-                    merged_polygons.append(polygon_coords)
+                # Process each individual polygon with single code path
+                for individual_polygon in individual_polygons:
+                    if individual_polygon.is_valid and individual_polygon.area > 0:
+                        # Convert back to numpy array for OpenCV format
+                        coords: npt.NDArray[np.floating[Any]] = np.array(individual_polygon.exterior.coords[:-1])  # Remove duplicate last point
+                        
+                        # Convert from OpenCV format to our polygon format
+                        if len(coords) >= 3:  # Valid polygon needs at least 3 points
+                            # Scale down coordinates back to original image coordinate system
+                            polygon_coords: PolygonArray = coords.astype(np.float32) / scale_factor
+                            merged_polygons.append(polygon_coords)
         
         log(f"Polygons extracted: {len(merged_polygons)}")
         return merged_polygons
