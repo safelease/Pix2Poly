@@ -4,13 +4,12 @@ import time
 import hashlib
 import pickle
 import copy
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional
 
 # Third-party imports
 import numpy as np
 import cv2
 import torch
-import torch.nn.functional as F
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from shapely.geometry import Polygon
@@ -19,7 +18,6 @@ from buildingregulariser import regularize_geodataframe
 import geopandas as gpd
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import math
 
 # Local imports
@@ -689,7 +687,7 @@ class PolygonInference:
                 # Check sample points along boundary edges
                 polygon_is_valid = True
                 
-                for edge_idx, (p1, p2) in enumerate(boundary_edges):
+                for p1, p2 in boundary_edges:
                     sample_points = generate_edge_sample_points(p1, p2)
                     
                     # Determine if this edge is horizontal or vertical
@@ -700,7 +698,7 @@ class PolygonInference:
                     global_sample_points = [(px + x, py + y) for px, py in sample_points]
                     
                     # Check if each sample point is contained in any polygon from other tiles
-                    for point_idx, global_point in enumerate(global_sample_points):
+                    for global_point in global_sample_points:
                         point_found_in_other_polygon = False
                         
                         # Check all other tiles
@@ -777,11 +775,11 @@ class PolygonInference:
         bitmap = np.zeros((image_height * scale_factor, image_width * scale_factor), dtype=np.uint8)
         
         # Fill bitmap with polygon regions
-        for tile_idx, (tile_result, (x, y, x_end, y_end)) in enumerate(zip(tile_results, positions)):
+        for tile_result, (x, y, x_end, y_end) in zip(tile_results, positions):
             tile_polygons = tile_result["polygons"]
             polygon_valid = tile_result["polygon_valid"]
             
-            for poly_idx, (poly, is_valid) in enumerate(zip(tile_polygons, polygon_valid)):
+            for poly, is_valid in zip(tile_polygons, polygon_valid):
                 # Skip invalid polygons
                 if not is_valid:
                     continue
