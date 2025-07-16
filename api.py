@@ -25,11 +25,10 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Get API key from environment variable
 API_KEY = os.getenv("API_KEY")
-EXPERIMENT_PATH = os.getenv("EXPERIMENT_PATH", "runs_share/Pix2Poly_inria_coco_224")
 MODEL_URL = os.getenv("MODEL_URL", "https://github.com/safelease/Pix2Poly/releases/download/main/runs_share.zip")
 
-# Default model name extracted from EXPERIMENT_PATH
-DEFAULT_MODEL_NAME = os.path.basename(EXPERIMENT_PATH)
+# Default model name (inria dataset)
+DEFAULT_MODEL_NAME = "Pix2Poly_inria_coco_224"
 
 # Cache configuration
 CACHE_TTL = int(os.getenv("CACHE_TTL", 24 * 3600))  # 24 hours
@@ -157,7 +156,7 @@ async def lifespan(app: FastAPI):
     )
 
     # Initialize predictor with downloaded model using the default model name
-    init_predictor(os.path.join(model_dir, EXPERIMENT_PATH), DEFAULT_MODEL_NAME)
+    init_predictor(os.path.join(model_dir, "runs_share", DEFAULT_MODEL_NAME), DEFAULT_MODEL_NAME)
     yield
 
 
@@ -202,6 +201,8 @@ def load_model(model_name: str):
         HTTPException: If model name is invalid or model files don't exist
     """
     global predictor, current_model_name, model_dir
+
+    log(f"Using model: {model_name}")
     
     if not validate_model_name(model_name):
         raise HTTPException(status_code=400, detail="Invalid model name. Only alphanumeric characters, underscores, and hyphens are allowed.")
@@ -340,7 +341,7 @@ async def ping(api_key: Optional[str] = Depends(verify_api_key)):
     """Health check endpoint to verify service status."""
     if predictor is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    return {"status": "healthy", "current_model": current_model_name}
+    return {"status": "healthy"}
 
 
 @app.get("/clear-cache")

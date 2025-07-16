@@ -52,7 +52,9 @@ def main():
             x_max = min(width, x+1)
             vis_image_merged[y_min:y_max, x_min:x_max] = [255, 0, 0]
     
-    plt.imshow(vis_image_merged)
+    # Convert BGR to RGB for correct display in matplotlib
+    vis_image_merged_rgb = cv2.cvtColor(vis_image_merged, cv2.COLOR_BGR2RGB)
+    plt.imshow(vis_image_merged_rgb)
     plt.axis('off')
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
@@ -60,6 +62,8 @@ def main():
     output_path = os.path.join(f"visualization.png")
     plt.savefig(output_path, dpi=100, bbox_inches='tight', pad_inches=0)
     plt.close()
+
+    log(f"Saved main visualization to {output_path}")
 
     # Print polygons to stdout
     print(json.dumps(polygons_list))
