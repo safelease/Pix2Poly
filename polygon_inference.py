@@ -348,6 +348,8 @@ class PolygonInference:
         else:
             cache_key = None
         
+        # Start timing for actual processing
+        batch_start_time = time.time()
         log(f"Processing batch of {len(tiles)} tiles...")
         valid_transforms = A.Compose(
             [
@@ -411,6 +413,10 @@ class PolygonInference:
         # Save results to cache (only when debug=True)
         if debug and cache_key is not None:
             self._save_to_cache(cache_key, results)
+        
+        # Log processing time per tile
+        batch_time = time.time() - batch_start_time
+        log(f"Batch processing time: {batch_time/len(tiles):.3f}s per tile")
         
         return results
 
@@ -811,7 +817,7 @@ class PolygonInference:
         # Save bitmap for debugging (optional)
         if debug:
             cv2.imwrite('bitmap-visualization.png', bitmap)
-            log("Saved debug bitmap to bitmap-visualization.png")
+            log("Saved bitmap visualization to bitmap-visualization.png")
         
         # Find contours in the bitmap
         contours, _ = cv2.findContours(bitmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -938,15 +944,13 @@ class PolygonInference:
         all_results: List[Dict[str, List[np.ndarray]]] = []
 
         for i in range(0, len(tiles), CFG.PREDICTION_BATCH_SIZE):
-            batch_start_time = time.time()
             batch_tiles = tiles[i : i + CFG.PREDICTION_BATCH_SIZE]
             batch_results = self._process_tiles_batch(batch_tiles, debug)
             all_results.extend(batch_results)
             
-            batch_time = time.time() - batch_start_time
             tiles_processed_so_far = i + len(batch_tiles)
             total_tiles = len(tiles)
-            log(f"Processed batch of {len(batch_tiles)} tiles ({tiles_processed_so_far}/{total_tiles}): {batch_time/len(batch_tiles):.3f}s per tile")
+            log(f"Processed batch of {len(batch_tiles)} tiles ({tiles_processed_so_far}/{total_tiles})")
 
         # Validate all polygons and add validation attributes
         all_results = self._validate_all_polygons(all_results, bboxes, height, width, effective_merge_tolerance)
