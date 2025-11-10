@@ -174,7 +174,7 @@ Pix2Poly provides a Docker setup for easy deployment and inference. The Docker c
 ### Building the Docker Image
 
 ```bash
-docker build -t pix2poly .
+docker buildx build --platform linux/amd64 -t pix2poly .
 ```
 
 ### Running the API Server
