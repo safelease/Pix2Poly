@@ -1,0 +1,41 @@
+[project]
+name = "pix2poly"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "timm>=1.0.0",
+    "transformers>=5.0.0",
+    "pycocotools>=2.0.6",
+    "torchmetrics>=1.6.0",
+    "tensorboard>=2.18.0",
+    "buildingregulariser>=0.2.4",
+    "geopandas>=1.0.1",
+    "albumentations>=2.0.0",
+    "imageio>=2.36.0",
+    "matplotlib",
+    "opencv-python-headless>=4.10.0",
+    "scikit-image>=0.24.0",
+    "scikit-learn>=1.5.0",
+    "scipy>=1.14.0",
+    "shapely>=2.0.6",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "python-multipart>=0.0.12",
+    "tqdm>=4.67.0",
+    "diskcache>=5.6.0",
+    "huggingface-hub>=1.0.0",
+    "requests>=2.32.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
