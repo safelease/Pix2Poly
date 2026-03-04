@@ -6,7 +6,23 @@ from scipy.optimize import linear_sum_assignment
 
 import torch
 import torchvision
-from transformers import top_k_top_p_filtering
+def top_k_top_p_filtering(logits, top_k=0, top_p=1.0, filter_value=-float("Inf"), min_tokens_to_keep=1):
+    """Filter logits using top-k and/or nucleus (top-p) filtering.
+    Replaces the removed transformers.top_k_top_p_filtering (removed in transformers 5.0).
+    """
+    if top_k > 0:
+        top_k = min(max(top_k, min_tokens_to_keep), logits.size(-1))
+        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+        logits = logits.masked_fill(indices_to_remove, filter_value)
+    if top_p < 1.0:
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
+        sorted_indices_to_remove = cumulative_probs - torch.softmax(sorted_logits, dim=-1) >= top_p
+        if min_tokens_to_keep > 1:
+            sorted_indices_to_remove[..., :min_tokens_to_keep] = 0
+        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+        logits = logits.masked_fill(indices_to_remove, filter_value)
+    return logits
 from torchmetrics.functional.classification import binary_jaccard_index, binary_accuracy
 from config import CFG
 
