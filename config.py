@@ -23,7 +23,7 @@ class CFG:
 
 
     TRAIN_DDP = True
-    NUM_WORKERS = 2
+    NUM_WORKERS = 16
     PIN_MEMORY = True
     LOAD_MODEL = False
 
@@ -72,7 +72,7 @@ class CFG:
     POLYGON_SIMPLIFICATION_TOLERANCE = 2
 
     # Prediction configuration
-    PREDICTION_BATCH_SIZE = 8  # Batch size for processing tiles during prediction
+    PREDICTION_BATCH_SIZE = 48 # Batch size for processing tiles during prediction
     
     # Polygon validation configuration
     MERGE_TOLERANCE = 2  # Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
