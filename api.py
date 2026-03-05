@@ -41,20 +41,21 @@ cache = Cache(
     disk_pickle_protocol=4,  # Use protocol 4 for better compatibility
 )
 
-def get_cache_key(image_data: bytes, model_name: str = None, merge_tolerance: float = None, tile_overlap_ratio: float = None) -> str:
+def get_cache_key(image_data: bytes, model_name: str = None, merge_tolerance: float = None, tile_overlap_ratio: float = None, regularize: bool = True) -> str:
     """Generate a cache key from image data and parameters.
-    
+
     Args:
         image_data: Raw image data
         model_name: Model name being used
         merge_tolerance: Merge tolerance parameter
         tile_overlap_ratio: Tile overlap ratio parameter
-        
+        regularize: Whether the building regularizer is applied
+
     Returns:
         SHA-256 hash of the image data combined with parameters as a string
     """
     image_hash = hashlib.sha256(image_data).hexdigest()
-    return f"{image_hash}_{model_name}_{merge_tolerance}_{tile_overlap_ratio}"
+    return f"{image_hash}_{model_name}_{merge_tolerance}_{tile_overlap_ratio}_{regularize}"
 
 
 def validate_model_name(model_name: str) -> bool:
@@ -230,6 +231,7 @@ async def invoke(
     merge_tolerance: Optional[float] = Query(None, description="Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)"),
     tile_overlap_ratio: Optional[float] = Query(None, description="Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)"),
     model_name: Optional[str] = Query(None, description="Name of the model to use (e.g., 'Pix2Poly_inria_coco_224')"),
+    regularize: Optional[bool] = Query(None, description="Whether to apply the building regularizer (default: true). Set to false to see raw model predictions."),
 ):
     """Main inference endpoint for processing images.
 
@@ -243,8 +245,8 @@ async def invoke(
     2. Via the api_key query parameter
 
     Configuration parameters can be provided in two ways:
-    1. Via query parameters (merge_tolerance, tile_overlap_ratio, model_name)
-    2. Via the JSON payload fields (merge_tolerance, tile_overlap_ratio, model_name)
+    1. Via query parameters (merge_tolerance, tile_overlap_ratio, model_name, regularize)
+    2. Via the JSON payload fields (merge_tolerance, tile_overlap_ratio, model_name, regularize)
 
     Args:
         request: The request containing the image data
@@ -253,6 +255,7 @@ async def invoke(
         merge_tolerance: Optional tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
         tile_overlap_ratio: Optional overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)
         model_name: Optional name of the model to use (e.g., 'Pix2Poly_inria_coco_224')
+        regularize: Optional flag to apply the building regularizer (default: true)
 
     Returns:
         JSON response containing the inferred polygons
@@ -270,6 +273,7 @@ async def invoke(
     effective_merge_tolerance = merge_tolerance
     effective_tile_overlap_ratio = tile_overlap_ratio
     effective_model_name = model_name or DEFAULT_MODEL_NAME
+    effective_regularize = regularize if regularize is not None else True
     
     # Validate merge_tolerance (should be positive)
     if effective_merge_tolerance is not None and effective_merge_tolerance < 0:
@@ -304,6 +308,12 @@ async def invoke(
                         raise HTTPException(status_code=400, detail="tile_overlap_ratio must be between 0.0 and 1.0")
                 if model_name is None and "model_name" in data:
                     effective_model_name = str(data["model_name"])
+                if regularize is None and "regularize" in data:
+                    val = data["regularize"]
+                    if isinstance(val, str):
+                        effective_regularize = val.lower() not in ("false", "0", "no")
+                    else:
+                        effective_regularize = bool(val)
             else:
                 raise HTTPException(
                     status_code=400, detail="No image data found in request"
@@ -316,14 +326,14 @@ async def invoke(
     load_model(effective_model_name)
 
     # Generate cache key including all configuration parameters
-    cache_key = get_cache_key(image_data, effective_model_name, effective_merge_tolerance, effective_tile_overlap_ratio)
+    cache_key = get_cache_key(image_data, effective_model_name, effective_merge_tolerance, effective_tile_overlap_ratio, effective_regularize)
     cached_result = cache.get(cache_key)
-    
+
     if cached_result is not None:
         return JSONResponse(content=cached_result)
 
     # Get inferences
-    polygons = predictor.infer(image_data, merge_tolerance=effective_merge_tolerance, tile_overlap_ratio=effective_tile_overlap_ratio)
+    polygons = predictor.infer(image_data, merge_tolerance=effective_merge_tolerance, tile_overlap_ratio=effective_tile_overlap_ratio, regularize=effective_regularize)
 
     # Prepare response
     response = {

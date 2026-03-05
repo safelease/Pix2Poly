@@ -846,6 +846,7 @@ class PolygonInference:
         image_height: int,
         image_width: int,
         debug: bool = False,
+        regularize: bool = True,
     ) -> List[PolygonArray]:
         """Merge polygon predictions from multiple tiles using a bitmap approach.
 
@@ -859,10 +860,12 @@ class PolygonInference:
             image_height (int): Height of the original image
             image_width (int): Width of the original image
             debug (bool): Whether to save debug images
+            regularize (bool): Whether to apply the building regularizer. Defaults to True.
 
         Returns:
             list[PolygonArray]: List of merged polygons in original image coordinates
         """
+        log(f"Regularize={regularize}")
         # Scale factor for subpixel precision
         scale_factor: int = 16
         
@@ -943,28 +946,31 @@ class PolygonInference:
                 log(f"Skipping invalid polygon")
         
         merged_polygons: List[PolygonArray] = []
-        
-        # Create single GeoDataFrame with all polygons and regularize them all at once
+
+        # Optionally regularize, then extract coordinates
         if shapely_polygons:
-            log(f"Regularizing {len(shapely_polygons)} polygons")
-            gdf: gpd.GeoDataFrame = gpd.GeoDataFrame({'geometry': shapely_polygons})
-            regularized_gdf: gpd.GeoDataFrame = regularize_geodataframe(gdf, simplify_tolerance=20, parallel_threshold=100)
-            
-            # Process the regularized polygons
-            for regularized_polygon in regularized_gdf.geometry:
+            if regularize:
+                log(f"Regularizing {len(shapely_polygons)} polygons")
+                gdf: gpd.GeoDataFrame = gpd.GeoDataFrame({'geometry': shapely_polygons})
+                polygons_to_process = regularize_geodataframe(gdf, simplify_tolerance=20, parallel_threshold=100).geometry
+            else:
+                log(f"Skipping regularizer for {len(shapely_polygons)} polygons")
+                polygons_to_process = shapely_polygons
+
+            for output_polygon in polygons_to_process:
                 # Extract individual polygons (either from MultiPolygon or single Polygon)
                 individual_polygons = []
-                if regularized_polygon.geom_type == 'MultiPolygon':
-                    individual_polygons = list(regularized_polygon.geoms)
-                elif regularized_polygon.geom_type == 'Polygon':
-                    individual_polygons = [regularized_polygon]
-                
+                if output_polygon.geom_type == 'MultiPolygon':
+                    individual_polygons = list(output_polygon.geoms)
+                elif output_polygon.geom_type == 'Polygon':
+                    individual_polygons = [output_polygon]
+
                 # Process each individual polygon with single code path
                 for individual_polygon in individual_polygons:
                     if individual_polygon.is_valid and individual_polygon.area > 0:
                         # Convert back to numpy array for OpenCV format
                         coords: npt.NDArray[np.floating[Any]] = np.array(individual_polygon.exterior.coords[:-1])  # Remove duplicate last point
-                        
+
                         # Convert from OpenCV format to our polygon format
                         if len(coords) >= 3:  # Valid polygon needs at least 3 points
                             # Scale down coordinates back to original image coordinate system
@@ -974,7 +980,7 @@ class PolygonInference:
         log(f"Polygons extracted: {len(merged_polygons)}")
         return merged_polygons
 
-    def infer(self, image_data: bytes, debug: bool = False, merge_tolerance: Optional[float] = None, tile_overlap_ratio: Optional[float] = None) -> List[List[List[float]]]:
+    def infer(self, image_data: bytes, debug: bool = False, merge_tolerance: Optional[float] = None, tile_overlap_ratio: Optional[float] = None, regularize: bool = True) -> List[List[List[float]]]:
         """Infer polygons in an image.
 
         Args:
@@ -982,6 +988,7 @@ class PolygonInference:
             debug (bool): Whether to save debug images (tile visualization and bitmap)
             merge_tolerance (Optional[float]): Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside). If None, uses CFG.MERGE_TOLERANCE
             tile_overlap_ratio (Optional[float]): Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap). If None, uses CFG.TILE_OVERLAP_RATIO
+            regularize (bool): Whether to apply the building regularizer to the output polygons. Defaults to True.
 
         Returns:
             list[list[list[float]]]: List of polygons where each polygon is a list of [x,y] coordinates.
@@ -1062,7 +1069,7 @@ class PolygonInference:
         if debug:
             self._create_tile_visualization(tiles, all_results, bboxes)
 
-        merged_polygons: List[PolygonArray] = self._merge_polygons(all_results, bboxes, height, width, debug)
+        merged_polygons: List[PolygonArray] = self._merge_polygons(all_results, bboxes, height, width, debug, regularize=regularize)
 
         # Convert to list format
         polygons_list: List[List[List[float]]] = [poly.tolist() for poly in merged_polygons]
