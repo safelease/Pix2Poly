@@ -22,7 +22,8 @@ class InriaCocoDataset(Dataset):
         self.coco = COCO(self.annotations_path)
         # self.image_ids = self.coco.getImgIds(catIds=self.coco.getCatIds())
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-        self.image_ids = [int(im.split('-')[-1].split('.')[0]) for im in self.images if im.split('-')[0] not in ['kitsap4', 'kitsap5']]
+        coco_img_ids = set(self.coco.imgs.keys())
+        self.image_ids = [int(im.split('-')[-1].split('.')[0]) for im in self.images if im.split('-')[0] not in ['kitsap4', 'kitsap5'] and int(im.split('-')[-1].split('.')[0]) in coco_img_ids]
 
     def __len__(self):
         return len(self.image_ids)
@@ -137,7 +138,8 @@ class InriaCocoDataset_val(Dataset):
         self.coco = COCO(self.annotations_path)
         # self.image_ids = self.coco.getImgIds(catIds=self.coco.getCatIds())
         self.images = [file for file in os.listdir(self.image_dir) if osp.isfile(osp.join(self.image_dir, file))]
-        self.image_ids = [int(im.split('-')[-1].split('.')[0]) for im in self.images]
+        coco_img_ids = set(self.coco.imgs.keys())
+        self.image_ids = [int(im.split('-')[-1].split('.')[0]) for im in self.images if int(im.split('-')[-1].split('.')[0]) in coco_img_ids]
 
     def __len__(self):
         return len(self.image_ids)

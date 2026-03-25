@@ -1,3 +1,4 @@
+import os
 import torch
 
 class CFG:
@@ -10,9 +11,14 @@ class CFG:
     - spacenet_coco
     - whu_buildings_224_coco
     - mass_roads_224
+    - dira_224
     """
-    DATASET = f"inria_coco_224_negAug"
-    if "coco" in DATASET:
+    DATASET = f"dira_224"
+    if "dira" in DATASET:
+        TRAIN_DATASET_DIR = os.environ["TRAIN_DATASET_DIR"]
+        VAL_DATASET_DIR = os.environ["VAL_DATASET_DIR"]
+        TEST_IMAGES_DIR = os.environ["TEST_IMAGES_DIR"]
+    elif "coco" in DATASET:
         TRAIN_DATASET_DIR = f"./data/{DATASET}/train"
         VAL_DATASET_DIR = f"./data/{DATASET}/val"
         TEST_IMAGES_DIR = f"./data/{DATASET}/val/images"
@@ -25,9 +31,12 @@ class CFG:
     TRAIN_DDP = True
     NUM_WORKERS = 16
     PIN_MEMORY = True
-    LOAD_MODEL = False
+    LOAD_MODEL = True
+    RESET_OPTIMIZER = True  # when True, optimizer/scheduler state is not restored from checkpoint (finetuning)
+    FREEZE_ENCODER = False  # when True, encoder weights are frozen (only decoder + ScoreNets are trained)
+    ENCODER_LR = 1e-5       # lower LR for encoder when unfrozen (differential LR fine-tuning)
 
-    if "inria" in DATASET:
+    if "inria" in DATASET or "dira" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
     elif "spacenet" in DATASET:
         N_VERTICES = 192  # maximum number of vertices per image in dataset.
@@ -38,7 +47,7 @@ class CFG:
 
     SINKHORN_ITERATIONS = 100
     MAX_LEN = (N_VERTICES*2) + 2
-    if "inria" in DATASET:
+    if "inria" in DATASET or "dira" in DATASET:
         IMG_SIZE = 224
     elif "spacenet" in DATASET:
         IMG_SIZE = 224
@@ -78,9 +87,9 @@ class CFG:
     MERGE_TOLERANCE = 2  # Tolerance for point-in-polygon tests during validation (in pixels, allows points to be slightly outside)
     TILE_OVERLAP_RATIO = 0.5  # Overlap ratio between tiles (0.0 = no overlap, 1.0 = complete overlap)
     
-    BATCH_SIZE = 24  # batch size per gpu; effective batch size = BATCH_SIZE * NUM_GPUs
+    BATCH_SIZE = 8  # batch size per gpu; effective batch size = BATCH_SIZE * NUM_GPUs
     START_EPOCH = 0
-    NUM_EPOCHS = 500
+    NUM_EPOCHS = 1000
     MILESTONE = 0
     SAVE_BEST = True
     SAVE_LATEST = True
@@ -90,14 +99,14 @@ class CFG:
     MODEL_NAME = f'vit_small_patch{PATCH_SIZE}_{INPUT_SIZE}.dino'
     NUM_PATCHES = int((INPUT_SIZE // PATCH_SIZE) ** 2)
 
-    LR = 4e-4
+    LR = 1e-4
     WEIGHT_DECAY = 1e-4
 
     generation_steps = (N_VERTICES * 2) + 1  # sequence length during prediction. Should not be more than max_len
     run_eval = False
 
     # EXPERIMENT_NAME = f"debug_run_Pix2Poly224_Bins{NUM_BINS}_fullRotateAugs_permLossWeight{perm_loss_weight}_LR{LR}__{NUM_EPOCHS}epochs"
-    EXPERIMENT_NAME = f"train_Pix2Poly_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_initialLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs"
+    EXPERIMENT_NAME = f"finetune_Pix2Poly_{DATASET}_run1_{MODEL_NAME}_AffineRotaugs0.8_LinearWarmupLRS_{vertex_loss_weight}xVertexLoss_{perm_loss_weight}xPermLoss__2xScoreNet_encoderLR_{ENCODER_LR}_decoderLR_{LR}_bs_{BATCH_SIZE}_Nv_{N_VERTICES}_Nbins{NUM_BINS}_{NUM_EPOCHS}epochs_unfrozen"
 
     if "debug" in EXPERIMENT_NAME:
         BATCH_SIZE = 10
@@ -108,7 +117,7 @@ class CFG:
         VAL_EVERY = 50
 
     if LOAD_MODEL:
-        CHECKPOINT_PATH = f"runs/{EXPERIMENT_NAME}/logs/checkpoints/latest.pth"  # full path to checkpoint to be loaded if LOAD_MODEL=True
+        CHECKPOINT_PATH = os.environ.get("CHECKPOINT_PATH", "checkpoints/epoch_499.pth")
     else:
         CHECKPOINT_PATH = ""
 

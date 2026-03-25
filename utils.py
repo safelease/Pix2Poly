@@ -49,10 +49,11 @@ def save_checkpoint(state, folder="logs/checkpoint/run1", filename="my_checkpoin
 def load_checkpoint(checkpoint, model, optimizer, scheduler):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-    scheduler.load_state_dict(checkpoint["scheduler"])
-
-    return checkpoint["epochs_run"]
+    if "optimizer" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    if "scheduler" in checkpoint:
+        scheduler.load_state_dict(checkpoint["scheduler"])
+    return checkpoint.get("epochs_run", 0)
 
 
 def generate_square_subsequent_mask(sz):

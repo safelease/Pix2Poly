@@ -75,7 +75,10 @@ def main():
             A.Affine(rotate=[-360, 360], fit_output=True, p=0.8),  # scaled rotations are performed before resizing to ensure rotated and scaled images are correctly resized.
             A.Resize(height=CFG.INPUT_HEIGHT, width=CFG.INPUT_WIDTH),
             A.RandomRotate90(p=1.),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
             A.RandomBrightnessContrast(p=0.5),
+            A.RGBShift(p=0.5),
             A.ColorJitter(),
             A.ToGray(p=0.4),
             A.GaussNoise(),
@@ -116,7 +119,7 @@ def main():
     )
     CFG.PAD_IDX = tokenizer.PAD_code
 
-    if "inria" in CFG.DATASET:
+    if "inria" in CFG.DATASET or "dira" in CFG.DATASET:
         train_loader, val_loader, _ = get_inria_loaders(
             CFG.TRAIN_DATASET_DIR,
             CFG.VAL_DATASET_DIR,
@@ -191,12 +194,28 @@ def main():
     model = EncoderDecoder(cfg=CFG, encoder=encoder, decoder=decoder)
     model.to(CFG.DEVICE)
 
+    if CFG.FREEZE_ENCODER:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+        print("=> Encoder frozen: only decoder and ScoreNets will be trained")
+
     weight = torch.ones(CFG.PAD_IDX + 1, device=CFG.DEVICE)
     weight[tokenizer.num_bins:tokenizer.BOS_code] = 0.0
     vertex_loss_fn = nn.CrossEntropyLoss(ignore_index=CFG.PAD_IDX, label_smoothing=CFG.LABEL_SMOOTHING, weight=weight)
     perm_loss_fn = nn.BCELoss()
 
-    optimizer = optim.AdamW(model.parameters(), lr=CFG.LR, weight_decay=CFG.WEIGHT_DECAY, betas=(0.9, 0.95))
+    if CFG.FREEZE_ENCODER:
+        trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+        optimizer = optim.AdamW(trainable_params, lr=CFG.LR, weight_decay=CFG.WEIGHT_DECAY, betas=(0.9, 0.95))
+    else:
+        encoder_param_ids = set(id(p) for p in model.encoder.parameters())
+        encoder_params = list(model.encoder.parameters())
+        other_params = [p for p in model.parameters() if id(p) not in encoder_param_ids]
+        optimizer = optim.AdamW([
+            {"params": encoder_params, "lr": CFG.ENCODER_LR},
+            {"params": other_params, "lr": CFG.LR},
+        ], weight_decay=CFG.WEIGHT_DECAY, betas=(0.9, 0.95))
+        print(f"=> Differential LR: encoder={CFG.ENCODER_LR}, decoder={CFG.LR}")
 
     num_training_steps = CFG.NUM_EPOCHS * (len(train_loader.dataset) // CFG.BATCH_SIZE // torch.cuda.device_count())
     num_warmup_steps = int(0.05 * num_training_steps)
@@ -209,14 +228,12 @@ def main():
     local_rank = int(os.environ["LOCAL_RANK"])
     CFG.START_EPOCH = 0
     if CFG.LOAD_MODEL:
-        checkpoint_name = osp.basename(osp.realpath(CFG.CHECKPOINT_PATH))
         map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
-        start_epoch = load_checkpoint(
-            torch.load(f"runs/{CFG.EXPERIMENT_NAME}/logs/checkpoints/{checkpoint_name}", map_location=map_location),
-            model,
-            optimizer,
-            lr_scheduler
-        )
+        checkpoint = torch.load(CFG.CHECKPOINT_PATH, map_location=map_location)
+        if CFG.RESET_OPTIMIZER:
+            checkpoint.pop("optimizer", None)
+            checkpoint.pop("scheduler", None)
+        start_epoch = load_checkpoint(checkpoint, model, optimizer, lr_scheduler)
         CFG.START_EPOCH = start_epoch + 1
         dist.barrier()
 
