@@ -1,0 +1,8 @@
+.venv
+checkpoints
+runs
+runpod_logs
+.env
+__pycache__
+*.pyc
+.git
